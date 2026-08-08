@@ -38,12 +38,18 @@ module jupiter_cpu
 
     localparam [1:0] STATE_FETCH  = 2'd0;
     localparam [1:0] STATE_DECODE = 2'd1;
+    localparam [1:0] STATE_LOAD   = 2'd2;
+    localparam [1:0] STATE_STORE  = 2'd3;
 
     reg [31:0] pc;
     reg [31:0] regs [0:31];
     reg [31:0] instruction_reg;
     reg [1:0]  state;
     reg        halted_reg;
+
+    reg [31:0] data_addr_reg;
+    reg [31:0] store_data_reg;
+    reg [4:0]  load_rd_reg;
 
     wire [7:0]  opcode      = instruction_reg[31:24];
     wire [4:0]  rd_index    = instruction_reg[23:19];
@@ -60,6 +66,9 @@ module jupiter_cpu
             instruction_reg <= 32'h00000000;
             state           <= STATE_FETCH;
             halted_reg      <= 1'b0;
+            data_addr_reg   <= 32'h00000000;
+            store_data_reg  <= 32'h00000000;
+            load_rd_reg     <= 5'd0;
 
             for (i = 0; i < 32; i = i + 1)
                 regs[i] <= 32'h00000000;
@@ -139,7 +148,21 @@ module jupiter_cpu
                                 state <= STATE_FETCH;
                             end
 
-                            OP_HALT: begin
+                            OP_LDW: begin
+                            data_addr_reg <=
+                                regs[rs1_index] + imm14_sext;
+                            load_rd_reg <= rd_index;
+                            state       <= STATE_LOAD;
+                        end
+
+                        OP_STW: begin
+                            data_addr_reg <=
+                                regs[rs1_index] + imm14_sext;
+                            store_data_reg <= regs[rd_index];
+                            state          <= STATE_STORE;
+                        end
+
+                        OP_HALT: begin
                                 halted_reg <= 1'b1;
                                 state      <= STATE_DECODE;
                             end
@@ -153,6 +176,23 @@ module jupiter_cpu
                         endcase
                     end
 
+                    STATE_LOAD: begin
+                        if (mem_ready) begin
+                            if (load_rd_reg != 5'd0)
+                                regs[load_rd_reg] <= mem_rdata;
+
+                            pc    <= pc + 32'd4;
+                            state <= STATE_FETCH;
+                        end
+                    end
+
+                    STATE_STORE: begin
+                        if (mem_ready) begin
+                            pc    <= pc + 32'd4;
+                            state <= STATE_FETCH;
+                        end
+                    end
+
                     default: begin
                         state <= STATE_FETCH;
                     end
@@ -163,15 +203,30 @@ module jupiter_cpu
 
     // Unified CPU memory transaction port.
     //
-    // At this checkpoint only instruction fetch uses the memory interface.
+    // FETCH and LOAD are reads. STORE is a full 32-bit write. Transaction
+    // address/data information is held in registers so it remains stable
+    // for any number of cycles while mem_ready is low.
     assign mem_valid = !reset &&
                        !halted_reg &&
-                       (state == STATE_FETCH);
+                       ((state == STATE_FETCH) ||
+                        (state == STATE_LOAD) ||
+                        (state == STATE_STORE));
 
-    assign mem_write = 1'b0;
-    assign mem_addr  = pc;
-    assign mem_wdata = 32'h00000000;
-    assign mem_wstrb = 4'b0000;
+    assign mem_write = !reset &&
+                       !halted_reg &&
+                       (state == STATE_STORE);
+
+    assign mem_addr = reset
+        ? 32'h00000000
+        : ((state == STATE_FETCH) ? pc : data_addr_reg);
+
+    assign mem_wdata = (!reset && (state == STATE_STORE))
+        ? store_data_reg
+        : 32'h00000000;
+
+    assign mem_wstrb = (!reset && (state == STATE_STORE))
+        ? 4'b1111
+        : 4'b0000;
 
     assign halted = halted_reg;
 
