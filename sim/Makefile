@@ -19,16 +19,32 @@ STUB_SRCS = ../rtl/cpu/jupiter_cpu_stub.sv \
 
 CPU_RTL = ../rtl/cpu/jupiter_cpu.sv
 
-.PHONY: test m1-test cpu-test core-test system-test stub-test \
-	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
-	cpu-memory-test cpu-control-test cpu-program-test clean
+INTERCONNECT_RTL = ../rtl/memory/jupiter_interconnect.sv
+INTERNAL_RAM_RTL = ../rtl/memory/jupiter_internal_ram.sv
+MMIO_SCRATCH_RTL = ../rtl/peripherals/jupiter_mmio_scratch.sv
 
-test: m1-test cpu-test
+CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
+                    $(INTERCONNECT_RTL) \
+                    $(INTERNAL_RAM_RTL) \
+                    $(MMIO_SCRATCH_RTL) \
+                    ../rtl/jupiter_cpu_subsystem.sv
+
+.PHONY: test m1-test cpu-test m3-test \
+	core-test system-test stub-test \
+	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
+	cpu-memory-test cpu-control-test cpu-program-test \
+	interconnect-test internal-ram-test mmio-scratch-test \
+	cpu-subsystem-test cpu-memory-map-test clean
+
+test: m1-test cpu-test m3-test
 
 m1-test: core-test system-test stub-test
 
 cpu-test: cpu-state-test cpu-fetch-test cpu-basic-exec-test \
 	cpu-alu-test cpu-memory-test cpu-control-test cpu-program-test
+
+m3-test: interconnect-test internal-ram-test mmio-scratch-test \
+	cpu-subsystem-test cpu-memory-map-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -41,7 +57,6 @@ system-test:
 stub-test:
 	iverilog -g2012 -s jupiter_stubs_tb -o jupiter_stubs.vvp $(STUB_SRCS)
 	vvp -n jupiter_stubs.vvp
-
 
 cpu-state-test:
 	iverilog -g2012 -s jupiter_cpu_state_tb -o jupiter_cpu_state.vvp $(CPU_RTL) jupiter_cpu_state_tb.sv
@@ -71,9 +86,32 @@ cpu-program-test:
 	iverilog -g2012 -s jupiter_cpu_program_tb -o jupiter_cpu_program.vvp $(CPU_RTL) jupiter_cpu_program_tb.sv
 	vvp -n jupiter_cpu_program.vvp
 
+interconnect-test:
+	iverilog -g2012 -s jupiter_interconnect_tb -o jupiter_interconnect.vvp $(INTERCONNECT_RTL) jupiter_interconnect_tb.sv
+	vvp -n jupiter_interconnect.vvp
+
+internal-ram-test:
+	iverilog -g2012 -s jupiter_internal_ram_tb -o jupiter_internal_ram.vvp $(INTERNAL_RAM_RTL) jupiter_internal_ram_tb.sv
+	vvp -n jupiter_internal_ram.vvp
+
+mmio-scratch-test:
+	iverilog -g2012 -s jupiter_mmio_scratch_tb -o jupiter_mmio_scratch.vvp $(MMIO_SCRATCH_RTL) jupiter_mmio_scratch_tb.sv
+	vvp -n jupiter_mmio_scratch.vvp
+
+cpu-subsystem-test:
+	iverilog -g2012 -s jupiter_cpu_subsystem_tb -o jupiter_cpu_subsystem.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_subsystem_tb.sv
+	vvp -n jupiter_cpu_subsystem.vvp
+
+cpu-memory-map-test:
+	iverilog -g2012 -s jupiter_cpu_memory_map_tb -o jupiter_cpu_memory_map.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_memory_map_tb.sv
+	vvp -n jupiter_cpu_memory_map.vvp
+
 clean:
 	rm -f jupiter_core.vvp jupiter_system.vvp jupiter_stubs.vvp \
 		jupiter_cpu_state.vvp jupiter_cpu_fetch.vvp \
 		jupiter_cpu_basic_exec.vvp jupiter_cpu_alu.vvp \
 		jupiter_cpu_memory.vvp jupiter_cpu_control.vvp \
-		jupiter_cpu_program.vvp
+		jupiter_cpu_program.vvp \
+		jupiter_interconnect.vvp jupiter_internal_ram.vvp \
+		jupiter_mmio_scratch.vvp jupiter_cpu_subsystem.vvp \
+		jupiter_cpu_memory_map.vvp

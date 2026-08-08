@@ -1,4 +1,4 @@
-# Jinix Jupiter — Milestone 1 and 2 Simulation
+# Jinix Jupiter — Milestone 1, 2, and 3 Simulation
 
 ## Quick start
 
@@ -6,15 +6,15 @@
 make -C sim test
 ```
 
-This command runs the complete host-side Milestone 1 and Milestone 2
-regression with Icarus Verilog.
+This command runs the complete host-side Milestone 1, Milestone 2,
+and Milestone 3 regression with Icarus Verilog.
 
-The suites may also be run separately with `make -C sim m1-test` and
-`make -C sim cpu-test`.
+The suites may also be run separately with `make -C sim m1-test`,
+`make -C sim cpu-test`, and `make -C sim m3-test`.
 
 ## Simulator / tool selected
 
-**Icarus Verilog (`iverilog` + `vvp`) is the only simulator for this milestone.**
+**Icarus Verilog (`iverilog` + `vvp`) is the simulator used by the current host-side regression.**
 
 The Milestone 1 regression has been compiled and executed successfully with host-installed Icarus Verilog (`iverilog` + `vvp`). The host-side simulation flow does not depend on simulator availability inside OpenHands.
 
@@ -149,6 +149,34 @@ FPGA performance, timing, or frequency claim.
 The Milestone 1 `jupiter_cpu_stub` remains a subsystem-boundary placeholder
 used by the Milestone 1 hierarchy test. It is separate from the functional
 Milestone 2 CPU implementation.
+
+## Milestone 3 Internal Bus and Memory Regression
+
+Milestone 3 adds the initial Jupiter internal transaction mechanism,
+memory map, internal/test RAM, MMIO scratch register, and integrated CPU
+memory subsystem. The bus and memory-map contract is documented in
+`docs/BUS_MEMORY_MAP.md`.
+
+`make -C sim m3-test` runs five focused Milestone 3 tests:
+
+- `interconnect-test` — address decoding, target selection, request forwarding,
+  stalls, and deterministic invalid/unmapped behavior
+- `internal-ram-test` — 4 KiB internal/test RAM reads, writes, independent
+  locations, and byte write strobes
+- `mmio-scratch-test` — reset behavior, MMIO reads/writes, byte strobes, and
+  scratch-register state
+- `cpu-subsystem-test` — CPU instruction fetch through the integrated
+  CPU → interconnect → RAM path
+- `cpu-memory-map-test` — deterministic CPU program exercising RAM store/load,
+  MMIO write/readback, unmapped reads/writes, target selection, and HALT
+
+The Milestone 3 integration program preloads the simulation RAM from the
+testbench. This is simulation infrastructure and does not define a final
+Jupiter boot or program-loading mechanism.
+
+The CPU is the only implemented transaction master in Milestone 3, so no
+runtime arbitration is required yet. Additional masters and arbitration policy
+belong to later milestones.
 
 Passing the host-side regression does not establish Quartus synthesis,
 timing closure, FPGA resource usage, a final clock frequency, or physical
