@@ -1,4 +1,4 @@
-# Jinix Jupiter — Milestone 1 Simulation
+# Jinix Jupiter — Milestone 1 and 2 Simulation
 
 ## Quick start
 
@@ -6,7 +6,11 @@
 make -C sim test
 ```
 
-This command runs the full Milestone 1 regression with Icarus Verilog.
+This command runs the complete host-side Milestone 1 and Milestone 2
+regression with Icarus Verilog.
+
+The suites may also be run separately with `make -C sim m1-test` and
+`make -C sim cpu-test`.
 
 ## Simulator / tool selected
 
@@ -97,3 +101,55 @@ peripheral implementation exists yet.
 The established skeleton hierarchy, clock/reset behavior, subsystem
 boundaries, and verification limits are documented in
 `docs/SKELETON_INTERFACES.md`.
+
+## Milestone 2 CPU Regression
+
+Milestone 2 adds the real CPU implementation at
+`rtl/cpu/jupiter_cpu.sv`. Its architectural contract is defined by
+`docs/ISA_SPEC.md`.
+
+The implemented Milestone 2 instruction subset is:
+
+- `NOP`
+- `ADD`
+- `SUB`
+- `AND`
+- `OR`
+- `XOR`
+- `ADDI`
+- `LDW`
+- `STW`
+- `BEQ`
+- `BNE`
+- `J`
+- `HALT`
+
+The CPU uses the unified `mem_valid` / `mem_ready` transaction interface
+documented in `docs/ISA_SPEC.md`.
+
+`make -C sim cpu-test` runs seven focused CPU tests:
+
+- `cpu-state-test` — reset, PC, register file, `r0`, and halted state
+- `cpu-fetch-test` — instruction fetch and stalled request handling
+- `cpu-basic-exec-test` — `NOP`, `ADDI`, and `HALT`
+- `cpu-alu-test` — register-register arithmetic and logic
+- `cpu-memory-test` — `LDW`, `STW`, and data-memory stalls
+- `cpu-control-test` — `BEQ`, `BNE`, and `J`
+- `cpu-program-test` — deterministic end-to-end CPU program
+
+The deterministic program exercises arithmetic and logic, load/store,
+taken and not-taken branches, a backward conditional loop, an
+unconditional jump, `NOP`, `HALT`, and the hardwired-zero behavior of
+`r0`. Its simulation memory also introduces deterministic wait states.
+
+The program test has an explicit timeout and automated PASS/FAIL result.
+Its reported cycle count is a simulation sanity value only and is not an
+FPGA performance, timing, or frequency claim.
+
+The Milestone 1 `jupiter_cpu_stub` remains a subsystem-boundary placeholder
+used by the Milestone 1 hierarchy test. It is separate from the functional
+Milestone 2 CPU implementation.
+
+Passing the host-side regression does not establish Quartus synthesis,
+timing closure, FPGA resource usage, a final clock frequency, or physical
+SuperStation One hardware operation.
