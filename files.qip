@@ -4,3 +4,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/mycore.v
 set_global_assignment -name SDC_FILE Template.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE Template.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/jupiter_core.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/jupiter_system.sv
