@@ -55,6 +55,15 @@ module jupiter_cpu
     wire [4:0]  rd_index    = instruction_reg[23:19];
     wire [4:0]  rs1_index   = instruction_reg[18:14];
     wire [4:0]  rs2_index   = instruction_reg[13:9];
+    wire [4:0]  branch_rs1_index = instruction_reg[23:19];
+    wire [4:0]  branch_rs2_index = instruction_reg[18:14];
+
+    // B/J displacements are signed word offsets relative to PC + 4.
+    wire [31:0] branch_offset =
+        {{16{instruction_reg[13]}}, instruction_reg[13:0], 2'b00};
+
+    wire [31:0] jump_offset =
+        {{6{instruction_reg[23]}}, instruction_reg[23:0], 2'b00};
     wire [31:0] imm14_sext  =
         {{18{instruction_reg[13]}}, instruction_reg[13:0]};
 
@@ -148,7 +157,32 @@ module jupiter_cpu
                                 state <= STATE_FETCH;
                             end
 
-                            OP_LDW: begin
+                            OP_BEQ: begin
+                            if (regs[branch_rs1_index] ==
+                                regs[branch_rs2_index])
+                                pc <= pc + 32'd4 + branch_offset;
+                            else
+                                pc <= pc + 32'd4;
+
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_BNE: begin
+                            if (regs[branch_rs1_index] !=
+                                regs[branch_rs2_index])
+                                pc <= pc + 32'd4 + branch_offset;
+                            else
+                                pc <= pc + 32'd4;
+
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_J: begin
+                            pc    <= pc + 32'd4 + jump_offset;
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_LDW: begin
                             data_addr_reg <=
                                 regs[rs1_index] + imm14_sext;
                             load_rd_reg <= rd_index;
