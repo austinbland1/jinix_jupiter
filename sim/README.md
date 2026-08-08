@@ -66,3 +66,19 @@ The following are **not** implemented by Milestone 1A and must not be assumed pr
 - Audio subsystem implementation
 - SDRAM controller implementation
 - Any controller or bus fabric implementation
+
+## Milestone 1B Integration Test
+
+`make -C sim test` now runs both the original `jupiter_core` smoke test and
+the `jupiter_system` integration test.
+
+The integration test instantiates `jupiter_system` alongside a direct
+`mycore` reference and compares the video, pixel-enable, blanking, and sync
+outputs cycle-for-cycle for 320000 clock cycles. It also verifies that the
+Milestone 1A Jupiter skeleton remains active inside the wrapper.
+
+`template_compat_stubs.sv` contains simulation-only models for the template
+`lfsr` and `cos` helpers because the current Icarus Verilog environment does
+not directly support all syntax/vendor primitives used by those original RTL
+files. These compatibility models are testbench infrastructure only and must
+not be added to `files.qip` or used as synthesizable replacements.

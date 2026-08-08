@@ -1,23 +1,25 @@
-#=============================================================================
-#  sim/Makefile — Deterministic smoke test for jupiter_core (Milestone 1A)
-#
-#  Simulator: Icarus Verilog (iverilog + vvp) only for this milestone.
-#  The previous Verilator fallback has been removed because the SystemVerilog
-#  testbench uses timed constructs that have not been verified with Verilator.
-#
-#  All paths are relative to sim/ because this Makefile lives in sim/.
-#=============================================================================
+# Simulator: Icarus Verilog (iverilog + vvp).
 
-SRCS = ../rtl/jupiter_core.sv \
-       jupiter_core_tb.sv
+CORE_SRCS = ../rtl/jupiter_core.sv \
+            jupiter_core_tb.sv
 
-.PHONY: test clean
+SYSTEM_SRCS = template_compat_stubs.sv \
+              ../rtl/mycore.v \
+              ../rtl/jupiter_core.sv \
+              ../rtl/jupiter_system.sv \
+              jupiter_system_tb.sv
 
-#--- Default rule — compile + run with Icarus ----------------------------
-test:
-	iverilog -g2012 -o jupiter_core.vvp $(SRCS)
+.PHONY: test core-test system-test clean
+
+test: core-test system-test
+
+core-test:
+	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
 	vvp -n jupiter_core.vvp
 
-#--- Cleanup ----------------------------------------------------------
+system-test:
+	iverilog -g2012 -s jupiter_system_tb -o jupiter_system.vvp $(SYSTEM_SRCS)
+	vvp -n jupiter_system.vvp
+
 clean:
-	rm -f jupiter_core.vvp
+	rm -f jupiter_core.vvp jupiter_system.vvp
