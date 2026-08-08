@@ -82,8 +82,8 @@ module jupiter_cpu_state_tb;
               mem_wstrb === 4'b0000,
               "memory interface remains idle");
 
-        // Release reset and confirm architectural state remains stable while
-        // instruction execution has not yet been implemented.
+        // Release reset with memory stalled and confirm architectural
+        // state remains stable while no instruction fetch completes.
         @(negedge clk);
         reset = 1'b0;
 
@@ -91,13 +91,13 @@ module jupiter_cpu_state_tb;
         #1;
 
         check(dut.pc === 32'h00000000,
-              "PC remains stable before fetch implementation");
+              "PC remains stable while instruction fetch is stalled");
 
         check(dut.regs[0] === 32'h00000000,
               "r0 remains hardwired to zero");
 
         check(halted === 1'b0,
-              "CPU remains unhalted before execution implementation");
+              "CPU remains unhalted while no instruction completes");
 
         if (failures == 0) begin
             $display("");

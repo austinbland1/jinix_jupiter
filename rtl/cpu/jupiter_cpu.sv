@@ -45,6 +45,12 @@ module jupiter_cpu
     reg [1:0]  state;
     reg        halted_reg;
 
+    wire [7:0]  opcode      = instruction_reg[31:24];
+    wire [4:0]  rd_index    = instruction_reg[23:19];
+    wire [4:0]  rs1_index   = instruction_reg[18:14];
+    wire [31:0] imm14_sext  =
+        {{18{instruction_reg[13]}}, instruction_reg[13:0]};
+
     integer i;
 
     always @(posedge clk) begin
@@ -60,35 +66,62 @@ module jupiter_cpu
             // r0 is architecturally hardwired to zero.
             regs[0] <= 32'h00000000;
 
-            case (state)
-                STATE_FETCH: begin
-                    // STATE_FETCH implies mem_valid is asserted.
-                    // Capture the instruction only when the documented
-                    // valid/ready transaction completes.
-                    if (mem_ready) begin
-                        instruction_reg <= mem_rdata;
-                        state           <= STATE_DECODE;
+            if (!halted_reg) begin
+                case (state)
+                    STATE_FETCH: begin
+                        // Capture an instruction only when the documented
+                        // valid/ready transaction completes.
+                        if (mem_ready) begin
+                            instruction_reg <= mem_rdata;
+                            state           <= STATE_DECODE;
+                        end
                     end
-                end
 
-                STATE_DECODE: begin
-                    // Decode and execution are intentionally deferred to a
-                    // later Milestone 2 checkpoint.
-                    state <= STATE_DECODE;
-                end
+                    STATE_DECODE: begin
+                        case (opcode)
+                            OP_NOP: begin
+                                pc    <= pc + 32'd4;
+                                state <= STATE_FETCH;
+                            end
 
-                default: begin
-                    state <= STATE_FETCH;
-                end
-            endcase
+                            OP_ADDI: begin
+                                if (rd_index != 5'd0)
+                                    regs[rd_index] <=
+                                        regs[rs1_index] + imm14_sext;
+
+                                pc    <= pc + 32'd4;
+                                state <= STATE_FETCH;
+                            end
+
+                            OP_HALT: begin
+                                halted_reg <= 1'b1;
+                                state      <= STATE_DECODE;
+                            end
+
+                            default: begin
+                                // Reserved-opcode behavior is architecturally
+                                // undefined in Milestone 2. Hold here rather
+                                // than silently treating it as another opcode.
+                                state <= STATE_DECODE;
+                            end
+                        endcase
+                    end
+
+                    default: begin
+                        state <= STATE_FETCH;
+                    end
+                endcase
+            end
         end
     end
 
     // Unified CPU memory transaction port.
     //
-    // M2A-4 implements instruction fetch only. PC remains the address of the
-    // captured instruction until execution behavior is added later.
-    assign mem_valid = !reset && (state == STATE_FETCH);
+    // At this checkpoint only instruction fetch uses the memory interface.
+    assign mem_valid = !reset &&
+                       !halted_reg &&
+                       (state == STATE_FETCH);
+
     assign mem_write = 1'b0;
     assign mem_addr  = pc;
     assign mem_wdata = 32'h00000000;

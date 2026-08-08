@@ -93,28 +93,27 @@ module jupiter_cpu_fetch_tb;
                   "fetch request remains stable while mem_ready is low");
         end
 
-        // Complete the transaction with a recognizable instruction word.
+        // Complete the transaction with a defined NOP instruction.
         @(negedge clk);
-        mem_rdata = 32'h12345678;
+        mem_rdata = 32'h00000000;
         mem_ready = 1'b1;
 
         @(posedge clk);
         #1;
 
-        check(dut.instruction_reg === 32'h12345678,
-              "instruction word is captured on valid/ready completion");
+        check(dut.instruction_reg === 32'h00000000,
+              "NOP instruction is captured on valid/ready completion");
 
         check(mem_valid === 1'b0,
-              "fetch request deasserts after transaction completion");
+              "fetch request deasserts while instruction is decoded");
 
         check(dut.state === dut.STATE_DECODE,
               "CPU enters decode state after instruction fetch");
 
         check(dut.pc === 32'h00000000,
-              "PC remains at current instruction before execution exists");
+              "PC remains at fetched instruction until decode executes");
 
-        // Remove ready and prove no second transaction begins in the
-        // intentionally-unimplemented decode state.
+        // Remove ready and allow the NOP to execute.
         @(negedge clk);
         mem_ready = 1'b0;
         mem_rdata = 32'h00000000;
@@ -122,8 +121,11 @@ module jupiter_cpu_fetch_tb;
         @(posedge clk);
         #1;
 
-        check(mem_valid === 1'b0,
-              "no second fetch begins before decode execution is implemented");
+        check(mem_valid === 1'b1,
+              "next instruction fetch begins after NOP executes");
+
+        check(mem_addr === 32'h00000004,
+              "next instruction fetch uses PC plus four");
 
         if (failures == 0) begin
             $display("");
