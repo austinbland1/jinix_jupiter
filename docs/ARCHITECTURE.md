@@ -69,11 +69,24 @@ The template video chain flows as follows:
 4. Color channels are 8-bit per channel (`VGA_R[7:0]`, `VGA_G[7:0]`, `VGA_B[7:0]`). Template.sv drives the full 8-bit video value into these outputs.
 5. **Audio:** Both `AUDIO_L` and `AUDIO_R` are tied to `'0`. Audio is entirely disabled in the template.
 
-### SDRAM / DDR Interfaces — Unused in This Template
+### SDRAM / DDR Interfaces
 
-- The template drives all SDRAM_BUS pins to `'Z` (high impedance).
-- No core RTL in this repository currently accesses any external memory.
-- SDRAM architecture is not yet designed.
+- The template currently drives the primary external `SDRAM_*` pins to `'Z`
+  because the Jupiter SDRAM controller has not yet reached top-level
+  integration.
+- `sys/emu_ports.vh` exposes the primary low-latency external SDR SDRAM
+  interface, including a 16-bit `SDRAM_DQ` bus, address and bank signals,
+  byte masks, clock/enable, and SDRAM command signals.
+- MiSTer framework files provide the board-level primary SDRAM pin
+  assignments and related I/O constraints.
+- The separate `DDRAM_*` interface is the HPS DDR3 transaction path and is
+  not the external-memory interface selected for Jupiter Milestone 4.
+- `hps_io` exposes `sdram_sz`, which reports availability and supported
+  32 MiB, 64 MiB, or 128 MiB external-SDRAM sizes.
+- Milestone 4 selects a Jupiter-owned controller under `rtl/memory/` that
+  will drive the primary `SDRAM_*` interface.
+- The selected controller architecture is documented in
+  `docs/SDRAM_ARCHITECTURE.md`.
 
 ### `files.qip`: Core HDL Source Registration
 
@@ -106,7 +119,7 @@ The `sys/` directory contains platform infrastructure provided by MiSTer:
 | `i2c.v` / `alsa.sv` | I2C peripheral and ALSA  audio interface support. |
 | `i2s.v` / `spdif.v` | I²S and S/PDIF  digital audio output paths. |
 | `audio_out.sv` | Audio DAC output  wrapper combining multiple audio sources. |
-|  `f2sdram_safe_terminator.sv` | MiSTer framework SDRAM-related support  file; its applicability to Jupiter as a specific controller or bridge  remains TBD. |
+| `f2sdram_safe_terminator.sv` | MiSTer framework support for the FPGA-to-HPS SDRAM interface; not selected as Jupiter's external SDR SDRAM controller. |
 
 ---
 
@@ -158,32 +171,45 @@ Jinix Jupiter is proposed as a MiSTer FPGA core emulating a dedicated arcade/ent
 
 ### System Bus
 
-**MILESTONE 3 SELECTED.** Jupiter's initial internal transaction mechanism
-uses the existing CPU `mem_valid` / `mem_ready` interface: 32-bit byte
-addresses, 32-bit data, four byte write strobes, and one outstanding CPU
-transaction at a time.
+**MILESTONE 3 SELECTED.** Jupiter's internal transaction mechanism uses the
+existing CPU `mem_valid` / `mem_ready` interface: 32-bit byte addresses,
+32-bit data, four byte write strobes, and one outstanding CPU transaction
+at a time.
 
-The CPU is the only Milestone 3 bus master, so no arbitration logic is
-required yet. Arbitration must be explicitly designed when another master,
-such as DMA, is introduced.
+The CPU remains the only implemented Jupiter transaction master through
+Milestone 4, so no multi-master arbitration logic is required yet.
 
-The complete Milestone 3 transaction semantics are documented in
+SDRAM refresh is controller maintenance and may stall CPU requests while
+required maintenance is serviced.
+
+Arbitration must be explicitly extended when another Jupiter master, such
+as DMA, is introduced.
+
+The complete transaction semantics are documented in
 `docs/BUS_MEMORY_MAP.md`.
 
 ### Memory Map
 
-**MILESTONE 3 INITIAL MAP.** The first concrete Jupiter address assignments
-are defined in `docs/BUS_MEMORY_MAP.md`:
+**MILESTONE 4 UPDATED MAP.** The established Jupiter address assignments
+are documented in `docs/BUS_MEMORY_MAP.md`:
 
 | Address range | Region | Status |
-|---------------|--------|--------|
-| `0x00000000`–`0x00000FFF` | Internal/test RAM | Milestone 3 |
-| `0x00001000`–`0x00001003` | MMIO scratch register | Milestone 3 |
-| `0x10000000`–`0x1FFFFFFF` | External SDRAM window | Reserved for Milestone 4 |
+| --- | --- | --- |
+| `0x00000000`–`0x00000FFF` | Internal/test RAM | Implemented in M3 |
+| `0x00001000`–`0x00001003` | MMIO scratch register | Implemented in M3 |
+| `0x10000000`–`0x17FFFFFF` | External SDRAM maximum aperture | Selected for M4 |
 
-All other addresses are unmapped during Milestone 3. Later GPU, DMA, audio,
-controller, firmware, and other regions remain to be assigned without
-overlapping the established regions.
+The usable SDRAM portion depends on reported installed capacity:
+
+- 32 MiB ends at `0x11FFFFFF`;
+- 64 MiB ends at `0x13FFFFFF`;
+- 128 MiB ends at `0x17FFFFFF`.
+
+The former Milestone 3 reservation from `0x18000000` through `0x1FFFFFFF`
+returns to unmapped space unless a later milestone explicitly assigns it.
+
+Later GPU, DMA, audio, controller, firmware, and other regions remain to be
+assigned without overlapping the established regions.
 
 ### DMA Engine
 
@@ -191,10 +217,27 @@ overlapping the established regions.
 
 ### External SDRAM
 
-**PROPOSED.** A major Jupiter design target is external SDRAM on the MiSTer board, to be used as main working memory for game state, sprite data, font/bitmaps, and program execution.
+**MILESTONE 4 SELECTED.** Jupiter will use the primary MiSTer external
+`SDRAM_*` interface as its external working-memory path.
 
-- The SDRAM controller implementation, scheduling policy, arbitration scheme, and resulting memory layout remain open design decisions.
+The selected architecture is documented in `docs/SDRAM_ARCHITECTURE.md`.
 
+- Jupiter owns its SDR SDRAM controller RTL under `rtl/memory/`.
+- The existing 32-bit Jupiter transaction interface is preserved.
+- The physical SDRAM data path is 16 bits, so aligned 32-bit Jupiter accesses
+  are converted into two logical 16-bit halves.
+- The maximum CPU-visible aperture is `0x10000000` through `0x17FFFFFF`.
+- The usable portion depends on the reported installed size: 32 MiB,
+  64 MiB, or 128 MiB.
+- The CPU remains the only Jupiter transaction master in Milestone 4.
+- Required SDRAM initialization and periodic refresh are controller
+  responsibilities.
+- Refresh may stall CPU transactions and must not be starved by sustained
+  CPU activity.
+- Multi-master arbitration remains deferred until another Jupiter master
+  such as DMA is implemented.
+- Exact row/bank/column mapping, controller clocking, physical timing values,
+  and CAS behavior remain implementation-stage decisions.
 
 ### 2D Graphics Subsystem
 
@@ -278,13 +321,22 @@ The following items represent genuine open Jinix Jupiter design decisions that m
 ### Memory Map
 
 - Where should later GPU, DMA, audio, controller, firmware, and other regions
-  be assigned around the initial Milestone 3 map and the reserved external
-  SDRAM window?
+  be assigned around the established internal-memory/MMIO regions and the
+  Milestone 4 external-SDRAM aperture?
 
 ### SDRAM Controller and Bandwidth Scheduling
 
-- How will Jupiter interface with external SDRAM — controller architecture, refresh strategy, read/write arbitration, and bandwidth scheduling are all TBD.
-- Total amount of game RAM (capacity) is TBD.
+- What exact row/bank/column transformation should the controller use for
+  each supported SDRAM geometry?
+- What controller clock frequency and SDRAM clock phase relationship will
+  be selected?
+- What initialization delays, refresh interval, CAS latency, and other
+  timing parameters are required by the selected physical SDRAM
+  configuration?
+- Which performance optimizations, if any, are justified after functional
+  correctness is verified?
+- If later milestones introduce additional memory masters, what arbitration
+  and scheduling policy should replace the current CPU-only arrangement?
 
 ### 2D GPU Organization
 

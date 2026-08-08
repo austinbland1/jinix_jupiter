@@ -1,13 +1,16 @@
-# Jinix Jupiter — Internal Bus and Initial Memory Map
+# Jinix Jupiter — Internal Bus and Memory Map
 
 ## 1. Scope
 
-Milestone 3 establishes Jupiter's first internal transaction mechanism and
+Milestone 3 established Jupiter's first internal transaction mechanism and
 initial memory map.
 
-This document defines only the behavior required for Milestone 3. External
-SDRAM, DMA arbitration, graphics, audio, and later peripheral mappings are
-not implemented here.
+Milestone 4 extends that architecture by selecting the CPU-visible external
+SDRAM aperture and unavailable-memory behavior. The physical SDRAM controller
+and its integration are implemented incrementally during Milestone 4.
+
+DMA, graphics, audio, and later peripheral mappings remain outside the scope
+of this document.
 
 ## 2. Selected Internal Transaction Protocol
 
@@ -61,34 +64,49 @@ Writes take effect only for a completed write transaction.
 
 ## 4. Arbitration
 
-The CPU is the only implemented Milestone 3 bus master.
+The CPU is the only implemented Jupiter transaction master through
+Milestone 4.
 
-Therefore Milestone 3 requires no arbitration or grant logic. The CPU owns
-the transaction path whenever it presents a request.
+Therefore no multi-master arbitration or grant logic is required yet. The CPU
+owns the transaction path whenever it presents a request.
+
+SDRAM refresh is controller maintenance rather than a separate Jupiter bus
+master. The SDRAM controller may stall the CPU while required maintenance is
+performed.
 
 Adding DMA or another master in a later milestone will require an explicit
 documented arbitration policy before that master shares the interconnect.
 
-## 5. Initial Memory Map
+## 5. Memory Map
 
-| Start | End | Size | Region | M3 status |
+| Start | End | Size | Region | Status |
 | --- | --- | ---: | --- | --- |
 | `0x00000000` | `0x00000FFF` | 4 KiB | Internal/test RAM | Implemented in M3 |
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
-| `0x10000000` | `0x1FFFFFFF` | 256 MiB window | External SDRAM reservation | Reserved for M4 |
+| `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Selected for M4; controller integration pending |
 
 These regions do not overlap.
 
-All addresses not listed as implemented targets are unmapped during
-Milestone 3.
+Milestone 4 replaces the provisional 256 MiB reservation from Milestone 3
+with a maximum 128 MiB external-SDRAM aperture.
 
-The external-SDRAM window is only an address-space reservation. It does not
-claim that the eventual hardware contains 256 MiB of physical SDRAM.
-Milestone 4 will define the implemented SDRAM capacity and controller
-behavior.
+The usable portion depends on the external-SDRAM size reported by MiSTer:
 
-Until Milestone 4 provides the SDRAM target, accesses to the reserved SDRAM
-window receive the Milestone 3 unmapped-access response.
+| Reported external SDRAM | CPU-visible usable range |
+| --- | --- |
+| none / unavailable | no implemented external-SDRAM addresses |
+| 32 MiB | `0x10000000` - `0x11FFFFFF` |
+| 64 MiB | `0x10000000` - `0x13FFFFFF` |
+| 128 MiB | `0x10000000` - `0x17FFFFFF` |
+
+Addresses above installed capacity must not alias lower physical memory.
+
+The former Milestone 3 reservation from `0x18000000` through `0x1FFFFFFF`
+is unmapped unless a later milestone explicitly assigns it.
+
+Until the Milestone 4 SDRAM target is integrated into the interconnect,
+external-SDRAM addresses continue to receive the deterministic unmapped
+response from the current RTL.
 
 ## 6. Internal/Test RAM
 
@@ -129,11 +147,12 @@ Addresses above `0x00001003` are not part of this register.
 
 ## 8. Invalid and Unmapped Accesses
 
-Milestone 3 requires deterministic behavior rather than hanging the CPU.
+Jupiter requires deterministic behavior rather than hanging the CPU.
 
 An access is invalid when no implemented target owns its address.
 
-A misaligned 32-bit CPU access is also treated as invalid for Milestone 3.
+A misaligned 32-bit CPU access is also treated as invalid by the current
+transaction architecture.
 
 For an invalid or unmapped read:
 
@@ -147,23 +166,38 @@ For an invalid or unmapped write:
 
 Thus an invalid transaction completes rather than stalling forever.
 
-The reserved external-SDRAM window uses this behavior until Milestone 4
-implements its target.
+Milestone 4 also applies this deterministic response to an external-SDRAM
+access when:
 
-## 9. Milestone 3 Target Selection
+- external SDRAM is absent;
+- SDRAM size information is not valid;
+- the address lies beyond installed SDRAM capacity; or
+- the Milestone 4 SDRAM target has not yet been integrated.
 
-The interconnect selects exactly one implemented target for a valid aligned
-request:
+Unavailable external-memory addresses must not alias valid lower memory.
+
+## 9. Target Selection
+
+The currently implemented Milestone 3 interconnect selects exactly one target
+for a valid aligned request:
 
 1. internal RAM for `0x00000000` through `0x00000FFF`;
 2. MMIO scratch register for `0x00001000` through `0x00001003`;
 3. otherwise the deterministic unmapped response.
 
+Milestone 4 will extend this selection with one external-SDRAM target for
+addresses inside the installed and available portion of
+`0x10000000` through `0x17FFFFFF`.
+
+An address in the maximum SDRAM aperture but beyond installed capacity must
+select no physical SDRAM transaction and must receive the deterministic
+unavailable-memory response instead.
+
 Multiple targets must never acknowledge the same transaction.
 
 ## 10. Verification Requirements
 
-Milestone 3 simulation must verify at least:
+Milestone 3 simulation verifies:
 
 - CPU instruction fetch through the interconnect from internal RAM;
 - CPU reads and writes to internal RAM;
@@ -174,4 +208,13 @@ Milestone 3 simulation must verify at least:
 - no overlapping target selection;
 - clear automated PASS/FAIL output.
 
-External SDRAM is not required to function during Milestone 3.
+Milestone 4 additionally requires deterministic automated verification of:
+
+- CPU-visible external-memory writes followed by matching reads;
+- 32-bit Jupiter transactions across the 16-bit physical SDRAM data path;
+- installed-size and out-of-range behavior;
+- required initialization and refresh behavior;
+- sustained accesses without corruption in tested scenarios;
+- CPU-visible SDRAM access through the established interconnect.
+
+See `docs/SDRAM_ARCHITECTURE.md` for the selected Milestone 4 architecture.
