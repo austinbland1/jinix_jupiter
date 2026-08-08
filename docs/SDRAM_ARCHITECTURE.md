@@ -251,6 +251,42 @@ Milestone 3.
 The first Jupiter SDRAM controller is correctness-oriented rather than
 performance-oriented.
 
+### 8.1 MiSTer-Compatible Physical Address Mapping
+
+The official MiSTer MemTest SDRAM controller provides the compatibility
+reference for mapping the external SDRAM address space onto the primary
+MiSTer SDRAM pins.
+
+The current 128 MiB MiSTer module is a two-chip arrangement using 64 MiB
+32M x 16 SDR SDRAM devices.
+
+Let `H[25:0]` be Jupiter's 26-bit halfword address from
+`jupiter_sdram_frontend`.
+
+The selected physical address permutation is:
+
+    SDRAM_nCS       = H[25]
+    column[9:0]     = {H[24:17], H[1:0]}
+    row[12:0]       = H[16:4]
+    bank[1:0]       = H[3:2]
+
+For a row-activate command, `SDRAM_A[12:0]` carries `row[12:0]`.
+
+For a read or write command, `SDRAM_A[9:0]` carries `column[9:0]`.
+`SDRAM_A[10]` may be used for auto-precharge according to the controller
+command sequence.
+
+The Jupiter byte write strobes remain independent of the address mapping and
+will drive `SDRAM_DQML` and `SDRAM_DQMH` through the physical controller.
+
+For 32 MiB and 64 MiB configurations, the installed-size gating established
+by the frontend prevents accesses above reported capacity. Jupiter does not
+create aliases for unavailable upper memory.
+
+This mapping defines the address-bit permutation only. It does not by itself
+establish initialization timing, refresh timing, CAS latency, SDRAM clock
+phase, or successful operation on physical hardware.
+
 Milestone 4 does not require:
 
 - pipelining;
@@ -373,7 +409,6 @@ The following details remain intentionally deferred until the relevant
 implementation checkpoint:
 
 - exact controller module filename;
-- exact row/bank/column mapping for each supported module geometry;
 - whether the physical SDRAM controller continues to use the current
   20 MHz `clk_sys` or introduces a dedicated memory clock;
 - SDRAM clock phase relationship;
