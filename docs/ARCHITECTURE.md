@@ -149,7 +149,7 @@ Jinix Jupiter is proposed as a MiSTer FPGA core emulating a dedicated arcade/ent
 
 ### Custom 32-bit RISC CPU
 
-**PROPOSED.** No RTL exists in the current repository for a CPU. A custom 32-bit RISC CPU is a design target for Jupiter.
+**PROPOSED.** No functional CPU RTL exists in the current repository; Milestone 1 provides only a boundary placeholder. A custom 32-bit RISC CPU is a design target for Jupiter.
 
 - Architecture: custom 32-bit RISC — instruction set architecture, register-file depth, and pipeline structure remain TBD.
 - Pipeline: stage count and microarchitecture are TBD (not yet finalized).

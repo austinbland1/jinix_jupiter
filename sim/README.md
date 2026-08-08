@@ -1,4 +1,4 @@
-# Jupiter Core — Milestone 1A Simulation Smoke Test
+# Jinix Jupiter — Milestone 1 Simulation
 
 ## Quick start
 
@@ -6,15 +6,13 @@
 make -C sim test
 ```
 
-This command runs the smoke test with Icarus Verilog.
+This command runs the full Milestone 1 regression with Icarus Verilog.
 
 ## Simulator / tool selected
 
 **Icarus Verilog (`iverilog` + `vvp`) is the only simulator for this milestone.**
 
-No supported simulator is currently detected in the OpenHands environment. Icarus Verilog requires both `iverilog` and `vvp` to be installed.
-
-The RTL and testbench have been created but have not yet been compiled or executed because Icarus Verilog is not currently available in the OpenHands environment.
+The Milestone 1 regression has been compiled and executed successfully with host-installed Icarus Verilog (`iverilog` + `vvp`). The host-side simulation flow does not depend on simulator availability inside OpenHands.
 
 ## Jupiter skeleton module / file
 
@@ -69,7 +67,7 @@ The following are **not** implemented by Milestone 1A and must not be assumed pr
 
 ## Milestone 1B Integration Test
 
-`make -C sim test` now runs both the original `jupiter_core` smoke test and
+`make -C sim test` includes the original `jupiter_core` smoke test and
 the `jupiter_system` integration test.
 
 The integration test instantiates `jupiter_system` alongside a direct
@@ -82,3 +80,20 @@ Milestone 1A Jupiter skeleton remains active inside the wrapper.
 not directly support all syntax/vendor primitives used by those original RTL
 files. These compatibility models are testbench infrastructure only and must
 not be added to `files.qip` or used as synthesizable replacements.
+
+## Milestone 1C Subsystem Boundary Test
+
+`make -C sim test` also runs `jupiter_stubs_tb`.
+
+This test instantiates the CPU, memory/bus, DMA, graphics, audio, and
+peripheral placeholder modules together. The placeholders expose only `clk`
+and `reset` during Milestone 1; their functional interfaces remain TBD.
+
+The test verifies that the complete placeholder set elaborates and executes
+without unresolved module/interface errors. It does not test subsystem
+functionality because no functional CPU, GPU, DMA, audio, SDRAM, or
+peripheral implementation exists yet.
+
+The established skeleton hierarchy, clock/reset behavior, subsystem
+boundaries, and verification limits are documented in
+`docs/SKELETON_INTERFACES.md`.
