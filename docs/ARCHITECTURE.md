@@ -110,7 +110,7 @@ The `sys/` directory contains platform infrastructure provided by MiSTer:
 |-----------------|------|
 | `sys_top.v` | Quartus  top-level module — pin assignments, clock distribution, subsystem  interconnect. |
 | `hps_io.sv` | MiSTer HPS/core  communication interface — config, joysticks, buttons, OSD menu,  state save/restore. |
-| `pll.v` | Cyclone  V PLL megafunction wrapper — generates system clocks from 50 MHz  refclk. |
+| `rtl/pll.v` | Cyclone V PLL wrapper used by `Template.sv`; its `outclk_0` drives the current 20 MHz `clk_sys` from the 50 MHz `CLK_50M` reference. |
 | `video_cleaner.sv` | Optional video scaling/format  correction in the sys chain. |
 | `scandoubler.v` | Scan-line doubler  pass-through for CRT outputs. |
 | `shadowmask.sv` | Pseudo-color  effects via shadow-mask filtering. |
