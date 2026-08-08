@@ -48,6 +48,7 @@ module jupiter_cpu
     wire [7:0]  opcode      = instruction_reg[31:24];
     wire [4:0]  rd_index    = instruction_reg[23:19];
     wire [4:0]  rs1_index   = instruction_reg[18:14];
+    wire [4:0]  rs2_index   = instruction_reg[13:9];
     wire [31:0] imm14_sext  =
         {{18{instruction_reg[13]}}, instruction_reg[13:0]};
 
@@ -84,7 +85,52 @@ module jupiter_cpu
                                 state <= STATE_FETCH;
                             end
 
-                            OP_ADDI: begin
+                            OP_ADD: begin
+                            if (rd_index != 5'd0)
+                                regs[rd_index] <=
+                                    regs[rs1_index] + regs[rs2_index];
+
+                            pc    <= pc + 32'd4;
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_SUB: begin
+                            if (rd_index != 5'd0)
+                                regs[rd_index] <=
+                                    regs[rs1_index] - regs[rs2_index];
+
+                            pc    <= pc + 32'd4;
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_AND: begin
+                            if (rd_index != 5'd0)
+                                regs[rd_index] <=
+                                    regs[rs1_index] & regs[rs2_index];
+
+                            pc    <= pc + 32'd4;
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_OR: begin
+                            if (rd_index != 5'd0)
+                                regs[rd_index] <=
+                                    regs[rs1_index] | regs[rs2_index];
+
+                            pc    <= pc + 32'd4;
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_XOR: begin
+                            if (rd_index != 5'd0)
+                                regs[rd_index] <=
+                                    regs[rs1_index] ^ regs[rs2_index];
+
+                            pc    <= pc + 32'd4;
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_ADDI: begin
                                 if (rd_index != 5'd0)
                                     regs[rd_index] <=
                                         regs[rs1_index] + imm14_sext;
