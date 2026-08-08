@@ -158,21 +158,32 @@ Jinix Jupiter is proposed as a MiSTer FPGA core emulating a dedicated arcade/ent
 
 ### System Bus
 
-**PROPOSED.** A shared internal bus connecting all major Jupiter blocks is a design target. Jupiter is intended to use a 32-bit-oriented internal architecture. The exact protocol, address-bus width, arbitration policy, burst semantics, and priority behavior remain TBD.
+**MILESTONE 3 SELECTED.** Jupiter's initial internal transaction mechanism
+uses the existing CPU `mem_valid` / `mem_ready` interface: 32-bit byte
+addresses, 32-bit data, four byte write strobes, and one outstanding CPU
+transaction at a time.
 
-### Memory Map (Conceptual Layout)
+The CPU is the only Milestone 3 bus master, so no arbitration logic is
+required yet. Arbitration must be explicitly designed when another master,
+such as DMA, is introduced.
 
-**PROPOSED.** No memory map exists in the repository. A conceptual layout is proposed; all address assignments will be determined as design decisions progress:
+The complete Milestone 3 transaction semantics are documented in
+`docs/BUS_MEMORY_MAP.md`.
 
-| Address       | Region                      | Notes                                           |
-|---------------|-----------------------------|-------------------------------------------------|
-| TBD           | Boot ROM / BIOS             | Read-only region for boot firmware              |
-| TBD           | Main RAM                    | Working memory                                  |
-| TBD           | GPU Registers               | Graphics control and data registers             |
-| TBD           | Graphics / Asset Memory     | General graphics/asset storage                  |
-| TBD           | DMA Registers               | DMA channel control registers                   |
-| TBD           | Audio Registers             | Audio control registers                         |
-| TBD           | Controller / Peripheral     | Input/peripheral interface registers            |
+### Memory Map
+
+**MILESTONE 3 INITIAL MAP.** The first concrete Jupiter address assignments
+are defined in `docs/BUS_MEMORY_MAP.md`:
+
+| Address range | Region | Status |
+|---------------|--------|--------|
+| `0x00000000`–`0x00000FFF` | Internal/test RAM | Milestone 3 |
+| `0x00001000`–`0x00001003` | MMIO scratch register | Milestone 3 |
+| `0x10000000`–`0x1FFFFFFF` | External SDRAM window | Reserved for Milestone 4 |
+
+All other addresses are unmapped during Milestone 3. Later GPU, DMA, audio,
+controller, firmware, and other regions remain to be assigned without
+overlapping the established regions.
 
 ### DMA Engine
 
@@ -260,11 +271,15 @@ The following items represent genuine open Jinix Jupiter design decisions that m
 
 ### System Bus
 
-- What bus protocol will Jupiter use — address-bus width, arbitration policy, burst semantics, and handshaking remain TBD.
+- When additional masters such as DMA are introduced, what arbitration,
+  priority, and any optional burst semantics should extend the established
+  Milestone 3 transaction mechanism?
 
 ### Memory Map
 
-- Where do CPU RAM, GPU tilemaps/sprite registers, audio registers, controller registers, and firmware ROM reside within the unified address space? Full memory map is TBD.
+- Where should later GPU, DMA, audio, controller, firmware, and other regions
+  be assigned around the initial Milestone 3 map and the reserved external
+  SDRAM window?
 
 ### SDRAM Controller and Bandwidth Scheduling
 
