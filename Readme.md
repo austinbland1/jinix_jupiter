@@ -6,7 +6,7 @@ Jupiter is not an emulator for an existing console. It is a new hardware platfor
 
 The project is built incrementally on top of the MiSTer framework, with simulation-first verification at each development milestone.
 
-> **Current status:** Milestone 3 development is in progress.  
+> **Current status:** Milestone 3 development is in progress.
 > Milestones 1 and 2 have verified checkpoints. The current Milestone 3 work includes an internal bus/interconnect, 4 KiB test RAM, a memory-mapped scratch register, and CPU/system integration. Full Milestone 3 regression/documentation verification is the next step before an `m3-verified` checkpoint.
 
 ---
