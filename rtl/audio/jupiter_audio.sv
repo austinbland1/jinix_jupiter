@@ -58,6 +58,29 @@ module jupiter_audio
 
     reg [31:0] sample_count_reg;
 
+    // Exact-average 48 kHz sample-update generator in the existing
+    // 20 MHz clk domain.
+    //
+    // 20,000,000 / 48,000 produces the repeating tick spacing:
+    //
+    //     417, 417, 416 clk cycles
+    //
+    // sample_tick is a one-cycle observation pulse corresponding to the
+    // state update performed on that same rising clock edge.
+    localparam [24:0] SAMPLE_PHASE_INCREMENT = 25'd48000;
+    localparam [24:0] SAMPLE_PHASE_MODULUS   = 25'd20000000;
+
+    reg  [24:0] sample_phase_reg;
+    reg         sample_tick;
+
+    wire [24:0] sample_phase_sum =
+        sample_phase_reg +
+        SAMPLE_PHASE_INCREMENT;
+
+    wire sample_tick_fire =
+        sample_phase_sum >=
+        SAMPLE_PHASE_MODULUS;
+
     wire voice_selected =
         (addr >= VOICE_BASE_ADDR) &&
         (addr <= VOICE_LAST_ADDR);
@@ -67,6 +90,13 @@ module jupiter_audio
 
     wire [4:0] voice_offset =
         addr[4:0];
+
+    wire control_command_write =
+        valid &&
+        write &&
+        voice_selected &&
+        (voice_offset == VOICE_CONTROL) &&
+        wstrb[0];
 
     wire [12:0] selected_remaining =
         13'd4096 -
@@ -82,7 +112,10 @@ module jupiter_audio
 
     integer i;
 
-    // No playback sequencer owns the sample RAM port yet.
+    // M7B-2 sequences voices but does not yet consume the sample-RAM
+    // data port for mixing. CPU SAMPLE_DATA accesses therefore remain
+    // zero-wait in this checkpoint. Shared-port ownership/stalling is
+    // introduced when playback begins reading PCM data.
     assign ready = valid;
 
 
@@ -227,6 +260,12 @@ module jupiter_audio
             sample_count_reg <=
                 32'h00000000;
 
+            sample_phase_reg <=
+                25'd0;
+
+            sample_tick <=
+                1'b0;
+
 
             for (
                 i = 0;
@@ -265,9 +304,95 @@ module jupiter_audio
 
             end
 
-        end else if (valid && write) begin
+        end else begin
 
-            case (addr)
+            // ----------------------------------------------------
+            // Exact-average 48 kHz sample-update tick.
+            // ----------------------------------------------------
+
+            if (sample_tick_fire) begin
+
+                sample_phase_reg <=
+                    sample_phase_sum -
+                    SAMPLE_PHASE_MODULUS;
+
+                sample_tick <=
+                    1'b1;
+
+                sample_count_reg <=
+                    sample_count_reg +
+                    32'd1;
+
+
+                // M7B-2 performs deterministic voice sequencing only.
+                //
+                // The pre-increment POSITION represents the source sample
+                // associated with this output update. Actual PCM fetch,
+                // volume scaling, mixing, and saturation are implemented
+                // in the later mixer checkpoint.
+                for (
+                    i = 0;
+                    i < 4;
+                    i = i + 1
+                ) begin
+
+                    if (
+                        voice_active[i] &&
+                        !(
+                            control_command_write &&
+                            (voice_index == i)
+                        )
+                    ) begin
+
+                        if (
+                            (
+                                voice_position[i] +
+                                13'd1
+                            ) >=
+                            active_length[i]
+                        ) begin
+
+                            voice_position[i] <=
+                                active_length[i];
+
+                            voice_active[i] <=
+                                1'b0;
+
+                            voice_done[i] <=
+                                1'b1;
+
+                        end else begin
+
+                            voice_position[i] <=
+                                voice_position[i] +
+                                13'd1;
+
+                        end
+                    end
+                end
+
+            end else begin
+
+                sample_phase_reg <=
+                    sample_phase_sum;
+
+                sample_tick <=
+                    1'b0;
+
+            end
+
+
+            // ----------------------------------------------------
+            // CPU MMIO writes.
+            //
+            // These assignments occur after sequencing assignments so a
+            // CONTROL command for a voice has deterministic priority when
+            // it coincides with a sample tick.
+            // ----------------------------------------------------
+
+            if (valid && write) begin
+
+                case (addr)
 
                 REG_SAMPLE_ADDR: begin
 
@@ -442,7 +567,8 @@ module jupiter_audio
                     end
                 end
 
-            endcase
+                endcase
+            end
         end
     end
 
