@@ -235,12 +235,12 @@ Implement Jupiter DMA for high-bandwidth data movement. Support graphics, audio,
 - Arbitration/contention tests relevant to the implemented masters.
 
 ### Acceptance Criteria
-- [ ] Every implemented DMA transfer mode copies/moves data exactly as documented.
-- [ ] Source data and unrelated memory are not corrupted during transfers.
-- [ ] Contention with other implemented masters follows documented arbitration behavior.
-- [ ] CPU-visible DMA state/control behaves deterministically.
-- [ ] Completion behavior, whatever mechanism was selected, is testable.
-- [ ] Tests automatically report pass/fail.
+- [x] Every implemented DMA transfer mode copies/moves data exactly as documented.
+- [x] Source data and unrelated memory are not corrupted during transfers.
+- [x] Contention with other implemented masters follows documented arbitration behavior.
+- [x] CPU-visible DMA state/control behaves deterministically.
+- [x] Completion behavior, whatever mechanism was selected, is testable.
+- [x] Tests automatically report pass/fail.
 
 ### Non-Goals
 - No particular channel count or requirement that channels operate concurrently.

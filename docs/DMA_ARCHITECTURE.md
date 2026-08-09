@@ -277,3 +277,33 @@ Milestone 6 does not establish:
 
 Those claims require later design decisions or actual synthesis/hardware
 evidence.
+
+## 12. Milestone 6 Verification Closeout
+
+Milestone 6 acceptance is verified in simulation for the selected initial DMA
+architecture described by this document.
+
+The deterministic verification plan in Section 10 is covered by the following
+automated regressions:
+
+- `dma-regs-test` and `dma-multiword-test` verify reset/control behavior,
+  byte-write strobes, START semantics, BUSY/DONE behavior, stalled request
+  stability, captured read data, exact source/destination progression, and
+  exact requested word counts.
+- `dma-copy-test` verifies a real synthesizable multiword external-SDRAM copy
+  through the production arbiter, SDRAM frontend, controller, and behavioral
+  SDRAM model, including source preservation, destination correctness,
+  unrelated-memory guards, CPU-visible configuration, and completion polling.
+- `cpu-dma-contention-test` verifies real CPU/DMA contention and progress.
+- `gpu-dma-contention-test` verifies real GPU/DMA contention and progress.
+- `three-master-contention-test` verifies simultaneous CPU/GPU/DMA requests
+  and completed contested progress by all three production masters.
+- `make -C sim test` provides regression coverage for previously verified CPU,
+  GPU, SDRAM, wrapper, interconnect, and DMA behavior.
+
+The selected Milestone 6 acceptance criteria in `docs/MILESTONES.md` are
+therefore satisfied by automated simulation evidence.
+
+This closeout does not establish DMA hardware throughput, burst performance,
+Quartus timing closure, FPGA resource utilization, or operation on physical
+hardware. Those remain outside the Milestone 6 acceptance boundary.

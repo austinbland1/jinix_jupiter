@@ -177,13 +177,16 @@ existing CPU `mem_valid` / `mem_ready` interface: 32-bit byte addresses,
 at a time.
 
 The CPU remains the only implemented Jupiter transaction master through
-Milestone 4, so no multi-master arbitration logic is required yet.
+Milestone 4, so no multi-master arbitration logic is required in that
+milestone.
 
-SDRAM refresh is controller maintenance and may stall CPU requests while
-required maintenance is serviced.
+Milestone 5 adds GPU as a second external-SDRAM master, and Milestone 6 adds
+DMA as a third. The current selected policy is deterministic non-preemptive
+three-way round-robin CPU -> GPU -> DMA, with inactive requesters skipped and
+a granted logical transaction held through completion.
 
-Arbitration must be explicitly extended when another Jupiter master, such
-as DMA, is introduced.
+SDRAM refresh is controller maintenance and may stall the selected requester
+while required maintenance is serviced.
 
 The complete transaction semantics are documented in
 `docs/BUS_MEMORY_MAP.md`.
@@ -197,6 +200,8 @@ are documented in `docs/BUS_MEMORY_MAP.md`:
 | --- | --- | --- |
 | `0x00000000`–`0x00000FFF` | Internal/test RAM | Implemented in M3 |
 | `0x00001000`–`0x00001003` | MMIO scratch register | Implemented in M3 |
+| `0x00001100`–`0x000011FF` | GPU 2D control MMIO | Integrated in M5B-2 |
+| `0x00001200`–`0x000012FF` | DMA control MMIO | Integrated in M6B-2 |
 | `0x10000000`–`0x17FFFFFF` | External SDRAM maximum aperture | Selected for M4 |
 
 The usable SDRAM portion depends on reported installed capacity:
@@ -208,8 +213,8 @@ The usable SDRAM portion depends on reported installed capacity:
 The former Milestone 3 reservation from `0x18000000` through `0x1FFFFFFF`
 returns to unmapped space unless a later milestone explicitly assigns it.
 
-Later GPU, DMA, audio, controller, firmware, and other regions remain to be
-assigned without overlapping the established regions.
+Later audio, controller, firmware, and other unselected regions remain to
+be assigned without overlapping the established regions.
 
 ### DMA Engine
 
@@ -234,8 +239,9 @@ The selected architecture is documented in `docs/SDRAM_ARCHITECTURE.md`.
   responsibilities.
 - Refresh may stall CPU transactions and must not be starved by sustained
   CPU activity.
-- Multi-master arbitration remains deferred until another Jupiter master
-  such as DMA is implemented.
+- Milestone 5 adds GPU and Milestone 6 adds DMA as external-SDRAM masters;
+  the selected arbiter is deterministic non-preemptive three-way round-robin
+  in CPU -> GPU -> DMA cyclic order.
 - Exact row/bank/column mapping, controller clocking, physical timing values,
   and CAS behavior remain implementation-stage decisions.
 
@@ -304,7 +310,9 @@ Such HPS assistance must not become Jupiter's game CPU: core gameplay architectu
 
 ## Unresolved Questions
 
-The following items represent genuine open Jinix Jupiter design decisions that must be finalized before RTL implementation can proceed.
+The following items represent design decisions that remain open for later
+Jinix Jupiter milestones. Decisions already selected by completed milestones
+are treated as current architecture; only their future extensions remain open.
 
 ### CPU ISA and Microarchitecture
 
@@ -314,15 +322,16 @@ The following items represent genuine open Jinix Jupiter design decisions that m
 
 ### System Bus
 
-- When additional masters such as DMA are introduced, what arbitration,
-  priority, and any optional burst semantics should extend the established
-  Milestone 3 transaction mechanism?
+- CPU/GPU/DMA external-memory arbitration is selected through Milestone 6.
+  If later milestones add more masters or burst semantics, how should the
+  current deterministic non-preemptive three-way round-robin policy be
+  extended?
 
 ### Memory Map
 
-- Where should later GPU, DMA, audio, controller, firmware, and other regions
-  be assigned around the established internal-memory/MMIO regions and the
-  Milestone 4 external-SDRAM aperture?
+- Where should later audio, controller, firmware, and other still-unselected
+  regions be assigned around the established RAM, GPU MMIO, DMA MMIO, and
+  external-SDRAM regions?
 
 ### SDRAM Controller and Bandwidth Scheduling
 
@@ -335,8 +344,9 @@ The following items represent genuine open Jinix Jupiter design decisions that m
   configuration?
 - Which performance optimizations, if any, are justified after functional
   correctness is verified?
-- If later milestones introduce additional memory masters, what arbitration
-  and scheduling policy should replace the current CPU-only arrangement?
+- If later milestones introduce memory masters beyond the current CPU, GPU,
+  and DMA set, what extensions to the selected three-way arbitration policy
+  are justified?
 
 ### 2D GPU Organization
 
@@ -361,7 +371,10 @@ The following items represent genuine open Jinix Jupiter design decisions that m
 
 ### DMA Organization
 
-- How are DMA channels organized — peripheries they serve, bus-grant latency, burst sizes, priority arbitration, overlap with CPU execution, and self-modifying write-back capabilities? All TBD.
+- Milestone 6 selects one CPU-controlled aligned 32-bit external-SDRAM copy
+  channel and deterministic participation as the third SDRAM master. Future
+  multi-channel operation, peripheral triggers, burst modes, descriptors,
+  interrupts, alternate transfer modes, and other DMA extensions remain open.
 
 ### Controller / Peripheral Register Design
 
