@@ -360,3 +360,35 @@ Milestone 5D-2 deliberately stops after all four row-zero words have been
 captured. It does not yet write the framebuffer, advance to tile row one,
 advance tile coordinates, complete a nonzero render, or produce a complete
 rendered image.
+
+### Milestone 5D-3 Framebuffer Row-Zero Writes
+
+Run the current Milestone 5D renderer regressions with:
+
+    make -C sim m5d-test
+
+Milestone 5D-3 completes the first bounded tilemap-to-framebuffer pipeline
+slice. After fetching the tilemap entry and reading the four 32-bit words of
+tile row zero, the renderer writes those captured words unchanged to the
+first sixteen bytes of the snapshotted framebuffer.
+
+For tile `(0, 0)`, row zero, the four writes are:
+
+    FRAMEBUFFER_BASE + 0
+    FRAMEBUFFER_BASE + 4
+    FRAMEBUFFER_BASE + 8
+    FRAMEBUFFER_BASE + 12
+
+Each framebuffer transaction is a 32-bit write with all four byte strobes
+asserted. The request address, write data, and strobes remain stable until
+`sdram_ready`.
+
+`jupiter_gpu_framebuffer_tb.sv` verifies the complete bounded
+tilemap-read -> tile-data-read -> framebuffer-write sequence, preservation of
+all four captured row words, use of the active framebuffer snapshot while the
+live register changes, write-address sequencing, full write strobes, stalled
+request stability, and reset behavior.
+
+Milestone 5D-3 deliberately stops after writing tile `(0, 0)` row zero. It
+does not yet advance to row one, advance tile coordinates, complete a nonzero
+render, or generate a complete rendered image.

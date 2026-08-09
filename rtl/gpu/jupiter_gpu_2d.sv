@@ -55,11 +55,13 @@ module jupiter_gpu_2d
     // M5D-1 established the tilemap fetch. M5D-2 continues with the four
     // 32-bit tile-data reads that make up tile row zero, then deliberately
     // stops before framebuffer traffic.
-    localparam [2:0] RENDER_IDLE              = 3'd0;
-    localparam [2:0] RENDER_TILEMAP_WAIT      = 3'd1;
-    localparam [2:0] RENDER_TILE_DATA_PENDING = 3'd2;
-    localparam [2:0] RENDER_TILE_DATA_WAIT    = 3'd3;
-    localparam [2:0] RENDER_TILE_ROW_PENDING  = 3'd4;
+    localparam [2:0] RENDER_IDLE               = 3'd0;
+    localparam [2:0] RENDER_TILEMAP_WAIT       = 3'd1;
+    localparam [2:0] RENDER_TILE_DATA_PENDING  = 3'd2;
+    localparam [2:0] RENDER_TILE_DATA_WAIT     = 3'd3;
+    localparam [2:0] RENDER_TILE_ROW_PENDING   = 3'd4;
+    localparam [2:0] RENDER_FRAMEBUFFER_WAIT   = 3'd5;
+    localparam [2:0] RENDER_ROW_WRITTEN        = 3'd6;
 
     reg [2:0] renderer_state;
     reg [7:0] tile_x;
@@ -91,26 +93,64 @@ module jupiter_gpu_2d
         tiledata_tile_base +
         {28'd0, tile_word, 2'b00};
 
+    // M5D-3 handles only tile (0,0), row zero. Those eight pixels occupy
+    // the first sixteen framebuffer bytes, represented by four 32-bit words.
+    // Later renderer traversal will extend this address calculation across
+    // tile rows and tile coordinates.
+    wire [31:0] framebuffer_request_addr =
+        active_framebuffer_base +
+        {28'd0, tile_word, 2'b00};
+
+    reg [31:0] framebuffer_request_data;
+
+    always @(*) begin
+        case (tile_word)
+            2'd0:
+                framebuffer_request_data = tile_row_word0;
+
+            2'd1:
+                framebuffer_request_data = tile_row_word1;
+
+            2'd2:
+                framebuffer_request_data = tile_row_word2;
+
+            default:
+                framebuffer_request_data = tile_row_word3;
+        endcase
+    end
+
     // This first GPU MMIO target inserts no wait states.
     assign ready = valid;
 
-    // Graphics-memory reads remain selected until completion. Both tilemap
-    // and tile-data traffic are read-only in the selected architecture.
+    // Graphics-memory transactions remain selected until completion.
+    // Tilemap and tile-data transactions are read-only; framebuffer traffic
+    // is the renderer's only write path.
     assign sdram_valid =
         (renderer_state == RENDER_TILEMAP_WAIT) ||
-        (renderer_state == RENDER_TILE_DATA_WAIT);
+        (renderer_state == RENDER_TILE_DATA_WAIT) ||
+        (renderer_state == RENDER_FRAMEBUFFER_WAIT);
 
-    assign sdram_write = 1'b0;
+    assign sdram_write =
+        (renderer_state == RENDER_FRAMEBUFFER_WAIT);
 
     assign sdram_addr =
         (renderer_state == RENDER_TILEMAP_WAIT) ?
             tilemap_request_addr :
         (renderer_state == RENDER_TILE_DATA_WAIT) ?
             tiledata_request_addr :
+        (renderer_state == RENDER_FRAMEBUFFER_WAIT) ?
+            framebuffer_request_addr :
             32'h00000000;
 
-    assign sdram_wdata = 32'h00000000;
-    assign sdram_wstrb = 4'b0000;
+    assign sdram_wdata =
+        (renderer_state == RENDER_FRAMEBUFFER_WAIT) ?
+            framebuffer_request_data :
+            32'h00000000;
+
+    assign sdram_wstrb =
+        (renderer_state == RENDER_FRAMEBUFFER_WAIT) ?
+            4'b1111 :
+            4'b0000;
 
     // Reads are deterministic. CONTROL is write-only and therefore reads
     // as zero. Reserved/unimplemented offsets also read as zero.
@@ -197,6 +237,18 @@ module jupiter_gpu_2d
 
                 if (tile_word == 2'd3) begin
                     renderer_state <= RENDER_TILE_ROW_PENDING;
+                end else begin
+                    tile_word <= tile_word + 2'd1;
+                end
+            end else if (renderer_state == RENDER_TILE_ROW_PENDING) begin
+                // Keep a transaction-free checkpoint after the four reads,
+                // then begin writing the captured row to the framebuffer.
+                tile_word <= 2'd0;
+                renderer_state <= RENDER_FRAMEBUFFER_WAIT;
+            end else if ((renderer_state == RENDER_FRAMEBUFFER_WAIT) &&
+                         sdram_ready) begin
+                if (tile_word == 2'd3) begin
+                    renderer_state <= RENDER_ROW_WRITTEN;
                 end else begin
                     tile_word <= tile_word + 2'd1;
                 end
