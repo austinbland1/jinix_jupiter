@@ -34,6 +34,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(INTERNAL_RAM_RTL) \
                     $(MMIO_SCRATCH_RTL) \
                     $(GPU_2D_RTL) \
+                    $(SDRAM_ARBITER_RTL) \
                     $(SDRAM_FRONTEND_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
@@ -44,7 +45,8 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	cpu-memory-test cpu-control-test cpu-program-test \
 	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test \
-	sdram-arbiter-test sdram-frontend-test sdram-controller-test sdram-path-test \
+	sdram-arbiter-test shared-sdram-test \
+	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
 test: m1-test cpu-test m3-test m4-test m5b-test m5c-test
@@ -63,7 +65,7 @@ m4-test: interconnect-test cpu-subsystem-test system-test \
 
 m5b-test: gpu-regs-test cpu-gpu-mmio-test
 
-m5c-test: sdram-arbiter-test
+m5c-test: sdram-arbiter-test shared-sdram-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -137,6 +139,10 @@ sdram-arbiter-test:
 	iverilog -g2012 -s jupiter_sdram_arbiter_tb -o jupiter_sdram_arbiter.vvp $(SDRAM_ARBITER_RTL) jupiter_sdram_arbiter_tb.sv
 	vvp -n jupiter_sdram_arbiter.vvp
 
+shared-sdram-test:
+	iverilog -g2012 -s jupiter_shared_sdram_tb -o jupiter_shared_sdram.vvp $(CPU_SUBSYSTEM_RTL) $(SDRAM_MODEL) jupiter_shared_sdram_tb.sv
+	vvp -n jupiter_shared_sdram.vvp
+
 sdram-frontend-test:
 	iverilog -g2012 -s jupiter_sdram_frontend_tb -o jupiter_sdram_frontend.vvp $(SDRAM_FRONTEND_RTL) jupiter_sdram_frontend_tb.sv
 	vvp -n jupiter_sdram_frontend.vvp
@@ -163,6 +169,6 @@ clean:
 		jupiter_mmio_scratch.vvp jupiter_gpu_2d.vvp \
 		jupiter_cpu_subsystem.vvp \
 		jupiter_cpu_memory_map.vvp jupiter_cpu_gpu_mmio.vvp \
-		jupiter_sdram_arbiter.vvp jupiter_sdram_frontend.vvp \
-		jupiter_sdram_controller.vvp \
+		jupiter_sdram_arbiter.vvp jupiter_shared_sdram.vvp \
+		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \
 		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp

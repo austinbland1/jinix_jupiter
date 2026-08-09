@@ -11,7 +11,19 @@ module jupiter_gpu_2d
     input  wire  [3:0] wstrb,
 
     output reg  [31:0] rdata,
-    output wire        ready
+    output wire        ready,
+
+    // GPU external-SDRAM master interface.
+    //
+    // M5C-2 establishes and integrates this interface. The M5D renderer
+    // will become its first functional request producer.
+    output wire        sdram_valid,
+    output wire        sdram_write,
+    output wire [31:0] sdram_addr,
+    output wire [31:0] sdram_wdata,
+    output wire  [3:0] sdram_wstrb,
+    input  wire [31:0] sdram_rdata,
+    input  wire        sdram_ready
 );
 
     localparam [31:0] REG_CONTROL          = 32'h00001100;
@@ -40,6 +52,15 @@ module jupiter_gpu_2d
 
     // This first GPU MMIO target inserts no wait states.
     assign ready = valid;
+
+    // M5C-2 integrates the GPU's SDRAM-master interface without inventing
+    // renderer traffic. Until M5D supplies the rendering state machine, the
+    // GPU is a deterministic idle SDRAM master.
+    assign sdram_valid = 1'b0;
+    assign sdram_write = 1'b0;
+    assign sdram_addr  = 32'h00000000;
+    assign sdram_wdata = 32'h00000000;
+    assign sdram_wstrb = 4'b0000;
 
     // Reads are deterministic. CONTROL is write-only and therefore reads
     // as zero. Reserved/unimplemented offsets also read as zero.

@@ -59,7 +59,7 @@ module jupiter_cpu_subsystem
     wire [31:0] gpu_rdata;
     wire        gpu_ready;
 
-    // External SDRAM target interface.
+    // CPU external-SDRAM target interface from the interconnect.
     wire        sdram_valid;
     wire        sdram_write;
     wire [31:0] sdram_addr;
@@ -67,6 +67,24 @@ module jupiter_cpu_subsystem
     wire  [3:0] sdram_wstrb;
     wire [31:0] sdram_rdata;
     wire        sdram_ready;
+
+    // GPU external-SDRAM master interface.
+    wire        gpu_sdram_valid;
+    wire        gpu_sdram_write;
+    wire [31:0] gpu_sdram_addr;
+    wire [31:0] gpu_sdram_wdata;
+    wire  [3:0] gpu_sdram_wstrb;
+    wire [31:0] gpu_sdram_rdata;
+    wire        gpu_sdram_ready;
+
+    // Shared post-arbitration 32-bit interface toward the M4 frontend.
+    wire        shared_sdram_valid;
+    wire        shared_sdram_write;
+    wire [31:0] shared_sdram_addr;
+    wire [31:0] shared_sdram_wdata;
+    wire  [3:0] shared_sdram_wstrb;
+    wire [31:0] shared_sdram_rdata;
+    wire        shared_sdram_ready;
 
     // SDRAM frontend/controller halfword interface.
     wire        half_valid;
@@ -140,18 +158,48 @@ module jupiter_cpu_subsystem
         .sdram_ready (sdram_ready)
     );
 
+    jupiter_sdram_arbiter sdram_arbiter
+    (
+        .clk         (clk),
+        .reset       (reset),
+
+        .cpu_valid   (sdram_valid),
+        .cpu_write   (sdram_write),
+        .cpu_addr    (sdram_addr),
+        .cpu_wdata   (sdram_wdata),
+        .cpu_wstrb   (sdram_wstrb),
+        .cpu_rdata   (sdram_rdata),
+        .cpu_ready   (sdram_ready),
+
+        .gpu_valid   (gpu_sdram_valid),
+        .gpu_write   (gpu_sdram_write),
+        .gpu_addr    (gpu_sdram_addr),
+        .gpu_wdata   (gpu_sdram_wdata),
+        .gpu_wstrb   (gpu_sdram_wstrb),
+        .gpu_rdata   (gpu_sdram_rdata),
+        .gpu_ready   (gpu_sdram_ready),
+
+        .sdram_valid (shared_sdram_valid),
+        .sdram_write (shared_sdram_write),
+        .sdram_addr  (shared_sdram_addr),
+        .sdram_wdata (shared_sdram_wdata),
+        .sdram_wstrb (shared_sdram_wstrb),
+        .sdram_rdata (shared_sdram_rdata),
+        .sdram_ready (shared_sdram_ready)
+    );
+
     jupiter_sdram_frontend sdram_frontend
     (
         .clk        (clk),
         .reset      (reset),
 
-        .m_valid    (sdram_valid),
-        .m_write    (sdram_write),
-        .m_addr     (sdram_addr),
-        .m_wdata    (sdram_wdata),
-        .m_wstrb    (sdram_wstrb),
-        .m_rdata    (sdram_rdata),
-        .m_ready    (sdram_ready),
+        .m_valid    (shared_sdram_valid),
+        .m_write    (shared_sdram_write),
+        .m_addr     (shared_sdram_addr),
+        .m_wdata    (shared_sdram_wdata),
+        .m_wstrb    (shared_sdram_wstrb),
+        .m_rdata    (shared_sdram_rdata),
+        .m_ready    (shared_sdram_ready),
 
         .sdram_sz   (sdram_sz),
 
@@ -232,7 +280,15 @@ module jupiter_cpu_subsystem
         .wstrb (gpu_wstrb),
 
         .rdata (gpu_rdata),
-        .ready (gpu_ready)
+        .ready (gpu_ready),
+
+        .sdram_valid (gpu_sdram_valid),
+        .sdram_write (gpu_sdram_write),
+        .sdram_addr  (gpu_sdram_addr),
+        .sdram_wdata (gpu_sdram_wdata),
+        .sdram_wstrb (gpu_sdram_wstrb),
+        .sdram_rdata (gpu_sdram_rdata),
+        .sdram_ready (gpu_sdram_ready)
     );
 
 endmodule

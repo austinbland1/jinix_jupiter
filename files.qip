@@ -8,6 +8,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/jupiter_system.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cpu/jupiter_cpu.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_interconnect.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_internal_ram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_arbiter.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_frontend.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_controller.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/peripherals/jupiter_mmio_scratch.sv

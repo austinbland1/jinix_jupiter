@@ -273,6 +273,33 @@ history across uncontested transactions, non-preemption while the shared
 target is stalled, master-specific completion and read-data routing, reset
 behavior, and deterministic idle outputs.
 
-Milestone 5C-1 proves the arbiter as a standalone RTL block only. The arbiter
-is not yet instantiated in `jupiter_cpu_subsystem`, is not yet part of
-`files.qip`, and the GPU does not yet issue external-SDRAM transactions.
+At the Milestone 5C-1 checkpoint the arbiter was proven as a standalone RTL
+block only. It was not yet instantiated in `jupiter_cpu_subsystem` or included
+in `files.qip`, and the GPU did not yet expose an integrated external-SDRAM
+master path.
+
+### Milestone 5C-2 Shared SDRAM Integration
+
+Run the complete Milestone 5C arbitration and shared-path regressions with:
+
+    make -C sim m5c-test
+
+Milestone 5C-2 integrates `jupiter_sdram_arbiter` between the CPU/GPU
+32-bit SDRAM masters and the existing `jupiter_sdram_frontend`. The frontend
+and physical SDRAM controller remain shared and unchanged in responsibility.
+
+The functional GPU now exposes the selected 32-bit external-SDRAM master
+interface. Until the M5D renderer is implemented, its synthesizable request
+outputs remain deterministically idle.
+
+`jupiter_shared_sdram_tb.sv` uses simulation-only request injection on that
+otherwise-idle GPU interface to verify the real integrated path without
+inventing renderer behavior in synthesizable RTL. The regression verifies
+CPU/GPU contention, non-preemptive arbitration, CPU and GPU traffic through
+the shared frontend/controller, GPU 32-bit write/read round-trip behavior,
+preservation of an adjacent CPU SDRAM word, expected physical 16-bit command
+counts, and absence of behavioral-SDRAM protocol errors.
+
+Passing M5C-2 establishes the shared CPU/GPU external-memory path. It does not
+yet establish tile rendering, framebuffer generation, live GPU video output,
+Quartus synthesis, timing closure, or physical-hardware operation.
