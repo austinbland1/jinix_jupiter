@@ -202,6 +202,7 @@ are documented in `docs/BUS_MEMORY_MAP.md`:
 | `0x00001000`–`0x00001003` | MMIO scratch register | Implemented in M3 |
 | `0x00001100`–`0x000011FF` | GPU 2D control MMIO | Integrated in M5B-2 |
 | `0x00001200`–`0x000012FF` | DMA control MMIO | Integrated in M6B-2 |
+| `0x00001300`–`0x000013FF` | PCM audio control MMIO | Selected for M7 |
 | `0x10000000`–`0x17FFFFFF` | External SDRAM maximum aperture | Selected for M4 |
 
 The usable SDRAM portion depends on reported installed capacity:
@@ -213,8 +214,8 @@ The usable SDRAM portion depends on reported installed capacity:
 The former Milestone 3 reservation from `0x18000000` through `0x1FFFFFFF`
 returns to unmapped space unless a later milestone explicitly assigns it.
 
-Later audio, controller, firmware, and other unselected regions remain to
-be assigned without overlapping the established regions.
+Later controller, firmware, and other unselected regions remain to be
+assigned without overlapping the established regions.
 
 ### DMA Engine
 
@@ -267,12 +268,26 @@ The selected architecture is documented in `docs/SDRAM_ARCHITECTURE.md`.
 
 ### PCM Audio System
 
-**PROPOSED.** PCM audio is a Jinix Jupiter design target. Provisional targets include:
+Milestone 7 selects the initial Jupiter PCM architecture.
 
-- Multiple hardware voices and hardware mixing are intended; exact voice count is provisionally estimated at roughly 32–64 channels, but remains TBD.
-- FPGA DSP resources may be used for mixing and filtering as a design goal.
-- Output pathways through the MiSTer framework (e.g., `audio_out.sv`, I²S/S/PDIF) are to-be-designed integration points; how Jupiter directly drives audio modules is not yet determined.
-- Sample rate, bit depth, FIFO structure, register map, voice count, and buffering remain TBD.
+- Four hardware PCM voices are implemented as the bounded initial design;
+  the provisional 32–64 voice project target remains unverified and is not a
+  Milestone 7 hardware-capacity claim.
+- Source samples are signed 16-bit mono PCM at a logical 48 kHz rate.
+- Each voice has independent 8-bit left/right volume and contributes to a
+  signed stereo mixer with 16-bit saturated output.
+- The initial sample store is a shared internal 4096 × 16-bit PCM RAM.
+- Audio does not become a fourth external-SDRAM master; the verified
+  CPU/GPU/DMA three-master arrangement remains unchanged.
+- CPU-visible audio control is selected at `0x00001300–0x000013FF`.
+- The engine remains in the current 20 MHz `clk_sys` domain and generates an
+  exact-average 48 kHz output tick using a fractional phase accumulator.
+- Jupiter drives the existing MiSTer core-facing `AUDIO_L`, `AUDIO_R`,
+  `AUDIO_S`, and `AUDIO_MIX` ports. The framework-owned `audio_out` path
+  remains responsible for downstream filtering, I²S, S/PDIF, and DAC output.
+
+The exact initial behavior and register contract are documented in
+`docs/AUDIO_ARCHITECTURE.md`.
 
 ### Controller Input
 
@@ -329,9 +344,9 @@ are treated as current architecture; only their future extensions remain open.
 
 ### Memory Map
 
-- Where should later audio, controller, firmware, and other still-unselected
-  regions be assigned around the established RAM, GPU MMIO, DMA MMIO, and
-  external-SDRAM regions?
+- Where should later controller, firmware, and other still-unselected regions
+  be assigned around the established RAM, GPU MMIO, DMA MMIO, audio MMIO,
+  and external-SDRAM regions?
 
 ### SDRAM Controller and Bandwidth Scheduling
 
@@ -367,7 +382,11 @@ are treated as current architecture; only their future extensions remain open.
 
 ### Audio Voice Architecture
 
-- How many PCM voices, what sample formats (rate, bit depth), buffering strategy, and mixing architecture will be implemented? The exact voice count, channel configuration, envelope/FM support, and mixing approach all remain TBD.
+- Milestone 7 selects four signed 16-bit PCM voices, shared internal sample
+  RAM, independent left/right volume, deterministic saturated stereo mixing,
+  and a 48 kHz logical output rate. Future voice-count expansion,
+  external-memory streaming, looping, pitch control, envelopes, synthesis,
+  effects, and other extensions remain open.
 
 ### DMA Organization
 
