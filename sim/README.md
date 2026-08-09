@@ -935,3 +935,56 @@ only. They are not measured DMA bandwidth, timing, or performance claims.
 
 These regressions do not establish Quartus synthesis, timing closure, FPGA
 resource usage, or operation on physical hardware.
+
+### Milestone 6E-1 Integrated CPU/DMA Contention
+
+Run the focused production contention regression with:
+
+    make -C sim cpu-dma-contention-test
+
+The Milestone 6E aggregate begins with:
+
+    make -C sim m6e-test
+
+Milestone 6E-1 verifies concurrent traffic from two real synthesizable
+external-SDRAM masters: the Jupiter CPU and the Jupiter DMA engine.
+
+A real CPU program configures and starts a 64-word external-SDRAM DMA copy,
+then executes 64 external-SDRAM store/load pairs against a separate CPU
+contention word. After the CPU loop completes, it polls DMA STATUS through
+MMIO until DONE and then halts.
+
+The regression verifies exact CPU traffic of 64 writes plus 64 reads and
+exact DMA traffic of 64 source reads plus 64 destination writes.
+
+It additionally proves:
+
+- CPU transactions complete while DMA is busy and requesting;
+- DMA transactions complete while a CPU request is pending;
+- CPU and DMA requests are simultaneously asserted;
+- the production arbiter records contested held grants;
+- CPU wins at least one completed contested transaction;
+- DMA wins at least one completed contested transaction;
+- every CPU contention load observes the most recent completed CPU store;
+- all 64 DMA source words remain unchanged;
+- all 64 DMA destination words exactly match their sources;
+- unrelated low/high guard words remain unchanged;
+- exact logical transaction counts are preserved;
+- 128 logical reads become 256 physical 16-bit READ commands;
+- 128 logical writes become 256 physical 16-bit WRITE commands;
+- 256 logical accesses produce 512 ACTIVE commands; and
+- the behavioral SDRAM model reports no protocol error.
+
+The GPU remains deliberately inactive in M6E-1. GPU/DMA contention and
+simultaneous CPU/GPU/DMA contention are separate following checkpoints.
+
+The test does not override production master signals and introduces no new
+synthesizable behavior. It verifies the existing selected non-preemptive
+three-way round-robin arbiter and the existing DMA transfer engine.
+
+Simulation cycle counts and command counts are verification observations
+only. They are not throughput, fairness-latency, timing, or performance
+guarantees.
+
+This checkpoint does not establish Quartus timing closure, FPGA resource
+usage, or physical-hardware operation.
