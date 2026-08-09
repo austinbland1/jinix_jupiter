@@ -45,7 +45,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
-	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test dma-regs-test dma-multiword-test \
+	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test dma-regs-test dma-multiword-test dma-copy-test \
 	gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test \
 	gpu-full-tile-test gpu-full-map-test \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test cpu-dma-mmio-test \
@@ -80,7 +80,7 @@ m6b-test: dma-regs-test cpu-dma-mmio-test
 
 m6c-test: sdram-arbiter-test dma-sdram-path-test
 
-m6d-test: dma-regs-test dma-multiword-test
+m6d-test: dma-regs-test dma-multiword-test dma-copy-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -218,6 +218,10 @@ dma-multiword-test:
 	iverilog -g2012 -s jupiter_dma_multiword_tb -o jupiter_dma_multiword.vvp $(DMA_RTL) jupiter_dma_multiword_tb.sv
 	vvp -n jupiter_dma_multiword.vvp
 
+dma-copy-test:
+	iverilog -g2012 -s jupiter_dma_copy_tb -o jupiter_dma_copy.vvp $(CPU_SUBSYSTEM_RTL) $(SDRAM_MODEL) jupiter_dma_copy_tb.sv
+	vvp -n jupiter_dma_copy.vvp
+
 clean:
 	rm -f jupiter_core.vvp jupiter_system.vvp jupiter_stubs.vvp \
 		jupiter_cpu_state.vvp jupiter_cpu_fetch.vvp \
@@ -235,4 +239,4 @@ clean:
 		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \
 		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp \
 		jupiter_dma.vvp jupiter_cpu_dma_mmio.vvp jupiter_dma_sdram_path.vvp \
-		jupiter_dma_multiword.vvp
+		jupiter_dma_multiword.vvp jupiter_dma_copy.vvp
