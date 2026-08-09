@@ -814,3 +814,43 @@ deterministic multiword transfer behavior is not claimed until M6D-2 tests it.
 This is simulation evidence only. It does not establish measured DMA
 throughput, Quartus synthesis, timing closure, FPGA resource usage, or
 physical-hardware operation.
+
+### Milestone 6D-2 Multiword DMA Sequencing
+
+Run the focused multiword regression with:
+
+    make -C sim dma-multiword-test
+
+Run the Milestone 6D standalone aggregate with:
+
+    make -C sim m6d-test
+
+Milestone 6D-2 verifies the continuation path introduced with the D1 transfer
+state machine. No additional DMA RTL behavior is introduced by this
+checkpoint unless the regression exposes a defect.
+
+The focused regression executes an exact four-word transfer using distinct
+32-bit source data.
+
+It verifies:
+
+- the source-read sequence is exactly SRC, SRC+4, SRC+8, SRC+12;
+- the destination-write sequence is exactly DST, DST+4, DST+8, DST+12;
+- each source read completes before its corresponding destination write;
+- read request fields remain stable under deterministic stalls;
+- destination address, data, and `4'b1111` strobes remain stable under stalls;
+- each captured source word becomes exactly one destination write;
+- each non-final write increments both progress addresses by four;
+- each non-final write decrements the remaining count exactly once;
+- BUSY remains asserted until the fourth destination write completes;
+- DONE asserts only after that final write;
+- exactly four logical reads and four logical writes complete;
+- idle cycles after completion create no extra transaction; and
+- the original START snapshot remains unchanged.
+
+This is standalone valid/ready transaction verification. A real synthesizable
+multiword copy through the production arbiter, SDRAM frontend, controller,
+and behavioral SDRAM model is a following integration checkpoint.
+
+The observed simulation transaction counts are verification evidence only.
+They are not DMA throughput or hardware-performance claims.
