@@ -120,13 +120,20 @@ The framework documents:
 Milestone 4 uses this information to determine the CPU-visible usable
 portion of Jupiter's SDRAM aperture.
 
-As of M4D-3, `Template.sv` receives `sdram_sz` from `hps_io` and
-passes it through `jupiter_system` into the CPU/memory subsystem.
+`Template.sv` receives `sdram_sz` from `hps_io` and passes it through
+`jupiter_system` into `jupiter_cpu_subsystem` and the SDRAM frontend.
 
-Jupiter's SDRAM command/data signals are present at the system-wrapper
-boundary but remain isolated from the physical primary SDRAM pins.
-The top-level high-impedance SDRAM default remains in place until the
-physical clock and pin-handoff checkpoint.
+The primary MiSTer `SDRAM_*` command/data pins are now owned by Jupiter
+at the top level. The previous blanket high-impedance assignment for
+primary SDRAM has been removed.
+
+`SDRAM_CLK` is generated separately at the top level with the selected
+Cyclone V `altddio_out` method. The SDRAM controller itself remains
+synchronous to `clk_sys`.
+
+This top-level integration establishes the RTL physical interface only.
+It does not establish Quartus timing closure or successful operation on
+physical SDRAM hardware.
 
 ## 3. Selected Milestone 4 Architecture
 
@@ -414,49 +421,80 @@ share the external-memory controller.
 
 ## 12. Simulation Strategy
 
-Milestone 4 simulation will be built incrementally.
+Milestone 4 uses deterministic host-side Icarus Verilog regression.
 
-The intended verification layers are:
+The implemented verification layers are:
 
-1. SDRAM target/interface transaction behavior;
-2. 32-bit Jupiter to 16-bit physical-transfer conversion;
-3. behavioral SDRAM storage model;
-4. initialization behavior;
-5. refresh scheduling/maintenance behavior;
-6. repeated and sustained read/write integrity tests;
-7. CPU-visible integration through the Milestone 3 interconnect;
-8. installed-size and out-of-range behavior.
+1. interconnect SDRAM target decoding and request forwarding;
+2. 32-bit Jupiter to paired 16-bit SDRAM transfer conversion;
+3. installed-size gating and out-of-range behavior;
+4. behavioral SDRAM storage and physical address reconstruction;
+5. initialization command sequencing;
+6. recurring refresh and maintenance behavior;
+7. byte-mask and partial-write behavior;
+8. refresh deferral so maintenance does not split one logical 32-bit
+   Jupiter transaction;
+9. deterministic write/read round trips on both MiSTer SDRAM
+   selections;
+10. CPU-visible external-memory access through the Milestone 3
+    interconnect;
+11. sustained repeated-access integrity while periodic refresh occurs;
+12. continued system-wrapper and earlier-milestone regression.
 
-All tests must produce deterministic automated PASS/FAIL output.
+`make -C sim m4-test` runs the Milestone 4 aggregate regression.
 
-A simulation behavioral model is verification infrastructure and is not a
-claim that a particular FPGA SDRAM timing implementation has been proven on
-hardware.
+`make -C sim test` runs the complete currently applicable Milestone 1
+through Milestone 4 host-side regression.
+
+The sustained-access path test writes 16 distinct aligned 32-bit words
+and performs eight complete read/verify passes across that working set
+while ordinary periodic refresh remains enabled.
+
+All implemented testbenches report deterministic PASS/FAIL status and
+terminate with failure status when checks fail.
+
+The behavioral SDRAM model and host simulation validate functional RTL
+behavior only. They do not establish Quartus synthesis, timing closure,
+FPGA resource usage, physical SDRAM timing, or successful operation on
+SuperStation One / MiSTer-compatible hardware.
 
 ## 13. Milestone 4 Integration Boundary
 
-Milestone 4 integration has progressed through M4D-3.
+The Milestone 4 functional RTL and host-side simulation integration is
+complete.
 
-Completed integration includes:
+Implemented integration includes:
 
 - the external SDRAM target in `jupiter_interconnect`;
 - CPU-visible external SDRAM through `jupiter_cpu_subsystem`;
-- the 32-bit-to-16-bit SDRAM frontend;
-- the physical SDRAM command/data controller;
-- `sdram_sz` propagation from `hps_io` into Jupiter;
-- SDRAM interface propagation through `jupiter_system`;
-- registration of implemented CPU/memory/MMIO/SDRAM RTL in
-  `files.qip`;
-- automated CPU-driven external-memory simulation.
+- 32-bit Jupiter transactions converted to paired 16-bit physical
+  transfers by `jupiter_sdram_frontend`;
+- SDRAM initialization, read/write command sequencing, and periodic
+  refresh in `jupiter_sdram_controller`;
+- a behavioral SDRAM model under `sim/`;
+- installed-size propagation from `hps_io` through the Jupiter
+  hierarchy;
+- physical primary `SDRAM_*` command/data ownership in `Template.sv`;
+- top-level `SDRAM_CLK` generation using the selected `altddio_out`
+  method;
+- Quartus source registration for the implemented CPU, interconnect,
+  RAM, MMIO, SDRAM frontend/controller, subsystem, and system wrapper;
+- deterministic CPU-driven external-memory simulation;
+- repeated sustained read/write integrity testing while periodic
+  refresh occurs;
+- an automated `m4-test` aggregate and complete M1-M4 regression.
 
-The remaining top-level physical handoff is:
+At Milestone 4 there is one transaction master: the CPU.
+Refresh is controller maintenance rather than a second transaction
+master, so no runtime multi-master arbiter is required at this stage.
 
-- generate `SDRAM_CLK` with the selected `altddio_out` method;
-- remove the primary SDRAM blanket high-impedance default;
-- connect Jupiter's SDRAM command/data signals to the physical
-  primary `SDRAM_*` pins;
-- perform Quartus analysis when the required toolchain is available;
-- perform physical-memory testing before making hardware claims.
+Still outside the claims of Milestone 4:
+
+- Quartus synthesis/resource/timing results unless actually run;
+- physical SDRAM timing validation;
+- successful operation on SuperStation One / MiSTer hardware;
+- performance guarantees;
+- DMA or other additional transaction masters.
 
 ## 14. Deferred Questions
 
