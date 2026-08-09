@@ -52,17 +52,27 @@ module jupiter_gpu_2d
 
     // Initial renderer sequencing state.
     //
-    // M5D-1 implements the first tilemap fetch only. Later M5D checkpoints
-    // continue from RENDER_TILE_DATA_PENDING with tile-data reads and
-    // framebuffer writes.
-    localparam [1:0] RENDER_IDLE              = 2'd0;
-    localparam [1:0] RENDER_TILEMAP_WAIT      = 2'd1;
-    localparam [1:0] RENDER_TILE_DATA_PENDING = 2'd2;
+    // M5D-1 established the tilemap fetch. M5D-2 continues with the four
+    // 32-bit tile-data reads that make up tile row zero, then deliberately
+    // stops before framebuffer traffic.
+    localparam [2:0] RENDER_IDLE              = 3'd0;
+    localparam [2:0] RENDER_TILEMAP_WAIT      = 3'd1;
+    localparam [2:0] RENDER_TILE_DATA_PENDING = 3'd2;
+    localparam [2:0] RENDER_TILE_DATA_WAIT    = 3'd3;
+    localparam [2:0] RENDER_TILE_ROW_PENDING  = 3'd4;
 
-    reg [1:0] renderer_state;
+    reg [2:0] renderer_state;
     reg [7:0] tile_x;
     reg [7:0] tile_y;
     reg [15:0] current_tile_index;
+
+    // Tile row zero consists of four 32-bit words, each containing two
+    // adjacent RGB565 pixels.
+    reg [1:0] tile_word;
+    reg [31:0] tile_row_word0;
+    reg [31:0] tile_row_word1;
+    reg [31:0] tile_row_word2;
+    reg [31:0] tile_row_word3;
 
     wire [15:0] tilemap_linear_index =
         (tile_y * active_map_size[7:0]) + tile_x;
@@ -71,22 +81,33 @@ module jupiter_gpu_2d
         active_tilemap_base +
         {14'd0, tilemap_linear_index, 2'b00};
 
+    // One tile occupies 128 bytes. M5D-2 reads only row zero, whose four
+    // words are therefore at tile base offsets +0, +4, +8, and +12.
+    wire [31:0] tiledata_tile_base =
+        active_tiledata_base +
+        {9'd0, current_tile_index, 7'd0};
+
+    wire [31:0] tiledata_request_addr =
+        tiledata_tile_base +
+        {28'd0, tile_word, 2'b00};
+
     // This first GPU MMIO target inserts no wait states.
     assign ready = valid;
 
-    // M5D-1 issues the renderer's first real graphics-memory transaction:
-    // the 32-bit tilemap entry for the current tile. Tilemap traffic is
-    // read-only. While stalled, renderer state and the active configuration
-    // remain unchanged, so the complete request remains stable.
+    // Graphics-memory reads remain selected until completion. Both tilemap
+    // and tile-data traffic are read-only in the selected architecture.
     assign sdram_valid =
-        (renderer_state == RENDER_TILEMAP_WAIT);
+        (renderer_state == RENDER_TILEMAP_WAIT) ||
+        (renderer_state == RENDER_TILE_DATA_WAIT);
 
     assign sdram_write = 1'b0;
 
     assign sdram_addr =
         (renderer_state == RENDER_TILEMAP_WAIT) ?
-        tilemap_request_addr :
-        32'h00000000;
+            tilemap_request_addr :
+        (renderer_state == RENDER_TILE_DATA_WAIT) ?
+            tiledata_request_addr :
+            32'h00000000;
 
     assign sdram_wdata = 32'h00000000;
     assign sdram_wstrb = 4'b0000;
@@ -131,10 +152,16 @@ module jupiter_gpu_2d
             active_framebuffer_base <= 32'h00000000;
             active_map_size         <= 16'h0000;
 
-            renderer_state    <= RENDER_IDLE;
-            tile_x            <= 8'd0;
-            tile_y            <= 8'd0;
+            renderer_state     <= RENDER_IDLE;
+            tile_x             <= 8'd0;
+            tile_y             <= 8'd0;
             current_tile_index <= 16'd0;
+
+            tile_word      <= 2'd0;
+            tile_row_word0 <= 32'h00000000;
+            tile_row_word1 <= 32'h00000000;
+            tile_row_word2 <= 32'h00000000;
+            tile_row_word3 <= 32'h00000000;
 
             busy <= 1'b0;
             done <= 1'b0;
@@ -146,6 +173,33 @@ module jupiter_gpu_2d
                 sdram_ready) begin
                 current_tile_index <= sdram_rdata[15:0];
                 renderer_state <= RENDER_TILE_DATA_PENDING;
+            end else if (renderer_state == RENDER_TILE_DATA_PENDING) begin
+                // Keep one transaction-free boundary between the tilemap
+                // completion and the first tile-data request. This preserves
+                // the bounded M5D-1 checkpoint behavior.
+                tile_word <= 2'd0;
+                renderer_state <= RENDER_TILE_DATA_WAIT;
+            end else if ((renderer_state == RENDER_TILE_DATA_WAIT) &&
+                         sdram_ready) begin
+                case (tile_word)
+                    2'd0:
+                        tile_row_word0 <= sdram_rdata;
+
+                    2'd1:
+                        tile_row_word1 <= sdram_rdata;
+
+                    2'd2:
+                        tile_row_word2 <= sdram_rdata;
+
+                    2'd3:
+                        tile_row_word3 <= sdram_rdata;
+                endcase
+
+                if (tile_word == 2'd3) begin
+                    renderer_state <= RENDER_TILE_ROW_PENDING;
+                end else begin
+                    tile_word <= tile_word + 2'd1;
+                end
             end
 
             if (valid && write) begin
@@ -161,6 +215,12 @@ module jupiter_gpu_2d
                             tile_x <= 8'd0;
                             tile_y <= 8'd0;
                             current_tile_index <= 16'd0;
+
+                            tile_word      <= 2'd0;
+                            tile_row_word0 <= 32'h00000000;
+                            tile_row_word1 <= 32'h00000000;
+                            tile_row_word2 <= 32'h00000000;
+                            tile_row_word3 <= 32'h00000000;
 
                             done <= 1'b0;
 

@@ -331,3 +331,32 @@ ignored START requests while busy, tile-index capture, and reset cancellation.
 Milestone 5D-1 deliberately stops after the first tilemap fetch in a
 tile-data-pending renderer state. It does not yet issue tile-data reads,
 framebuffer writes, complete a nonzero render, or produce a rendered image.
+
+### Milestone 5D-2 Tile Row-Zero Reads
+
+Run the current Milestone 5D renderer regressions with:
+
+    make -C sim m5d-test
+
+Milestone 5D-2 extends the first tilemap fetch with tile-data access for row
+zero of the selected tile.
+
+Each tile occupies 128 bytes, so the renderer derives the selected tile base
+as:
+
+    TILEDATA_BASE + (tile_index * 128)
+
+One RGB565 tile row occupies 16 bytes and is read as four aligned 32-bit
+words at offsets `+0`, `+4`, `+8`, and `+12`. Each returned word contains two
+adjacent RGB565 pixels and is captured for the later framebuffer-write stage.
+
+`jupiter_gpu_tiledata_tb.sv` verifies tile-index-to-address calculation,
+upper tilemap-entry bits being ignored, preservation of the active tile-data
+base while live configuration changes, request stability while stalled, all
+four row-zero addresses, read-only request controls, returned-word capture,
+and reset behavior.
+
+Milestone 5D-2 deliberately stops after all four row-zero words have been
+captured. It does not yet write the framebuffer, advance to tile row one,
+advance tile coordinates, complete a nonzero render, or produce a complete
+rendered image.
