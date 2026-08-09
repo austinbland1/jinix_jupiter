@@ -207,6 +207,16 @@ module jupiter_cpu_subsystem
         .gpu_rdata   (gpu_sdram_rdata),
         .gpu_ready   (gpu_sdram_ready),
 
+        // M6C-1 interface compatibility only. The production DMA
+        // master remains disconnected until M6C-2.
+        .dma_valid   (1'b0),
+        .dma_write   (1'b0),
+        .dma_addr    (32'h00000000),
+        .dma_wdata   (32'h00000000),
+        .dma_wstrb   (4'b0000),
+        .dma_rdata   (),
+        .dma_ready   (),
+
         .sdram_valid (shared_sdram_valid),
         .sdram_write (shared_sdram_write),
         .sdram_addr  (shared_sdram_addr),

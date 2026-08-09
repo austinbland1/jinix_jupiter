@@ -673,3 +673,53 @@ CPU/GPU/DMA SDRAM arbitration belongs to the next Milestone 6 checkpoint.
 These regressions are simulation evidence only. They do not establish
 Quartus synthesis, timing closure, measured DMA throughput, FPGA resource
 usage, or operation on physical hardware.
+
+### Milestone 6C-1 Standalone Three-Master SDRAM Arbitration
+
+Run the focused arbitration regression with:
+
+    make -C sim sdram-arbiter-test
+
+Milestone 6C-1 extends `jupiter_sdram_arbiter` from the Milestone 5 CPU/GPU
+two-master design to the selected deterministic CPU/GPU/DMA three-master
+policy.
+
+The cyclic contested priority is:
+
+    CPU -> GPU -> DMA -> CPU
+
+Inactive requesters are skipped.
+
+The first contested arbitration after reset selects CPU whenever CPU
+participates. Only a completed transaction that began contested updates the
+round-robin history. Uncontested transactions leave that history unchanged.
+
+A stalled grant remains non-preemptive until the selected logical 32-bit
+transaction completes. Completion and read data are returned only to the
+granted master.
+
+The Milestone 5 internal grant encodings are intentionally preserved:
+
+- CPU = 1;
+- GPU = 2.
+
+DMA adds encoding 3. The existing `grant_state` and `grant_contested`
+observability is retained so prior CPU/GPU integration regressions remain
+meaningful.
+
+At this M6C-1 checkpoint the production CPU subsystem explicitly ties the new
+DMA arbiter request input inactive. The functional `jupiter_dma` data-master
+signals are still not connected to the shared SDRAM path. That live
+production connection belongs to M6C-2.
+
+Therefore M6C-1 proves the three-master arbitration block and preserves prior
+CPU/GPU behavior, but it does not yet prove a DMA memory transaction through
+the SDRAM frontend or controller.
+
+The historical Milestone 5C sections above describe the verified two-master
+checkpoint as it existed during Milestone 5. The current arbiter testbench is
+extended by M6C-1 to cover CPU/GPU/DMA behavior.
+
+These regressions are simulation evidence only. They do not establish
+Quartus synthesis, timing closure, measured arbitration throughput, FPGA
+resource usage, or operation on physical hardware.
