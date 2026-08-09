@@ -83,6 +83,7 @@ documented arbitration policy before that master shares the interconnect.
 | --- | --- | ---: | --- | --- |
 | `0x00000000` | `0x00000FFF` | 4 KiB | Internal/test RAM | Implemented in M3 |
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
+| `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Selected in M5; RTL pending |
 | `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.
@@ -146,6 +147,23 @@ feature solely for address construction.
 
 Addresses above `0x00001003` are not part of this register.
 
+### 7.1 Milestone 5 GPU Control Aperture
+
+Milestone 5 selects the following CPU-visible GPU control aperture:
+
+    0x00001100 - 0x000011FF
+
+The selected register layout is documented in
+`docs/GPU_2D_ARCHITECTURE.md`.
+
+This aperture does not overlap internal RAM, the Milestone 3 scratch
+register, or external SDRAM.
+
+At the M5A architecture-selection checkpoint the GPU MMIO target has not yet
+been added to the interconnect, so accesses to this aperture still receive
+the existing deterministic unmapped response. Later Milestone 5 integration
+will replace that temporary behavior with the selected GPU register target.
+
 ## 8. Invalid and Unmapped Accesses
 
 Jupiter requires deterministic behavior rather than hanging the CPU.
@@ -185,6 +203,15 @@ for a valid aligned request:
 2. MMIO scratch register for `0x00001000` through `0x00001003`;
 3. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
 4. otherwise the deterministic unmapped response.
+
+Milestone 5 has selected `0x00001100` through `0x000011FF` for GPU control
+MMIO. At the M5A architecture-selection checkpoint that target is documented
+but not yet implemented in the interconnect. Until its RTL integration,
+those addresses therefore continue to use the deterministic unmapped
+response.
+
+Once the GPU MMIO target is integrated, it becomes a distinct decoded target
+and must not overlap the existing RAM, scratch-MMIO, or SDRAM selections.
 
 Within the maximum SDRAM aperture, the SDRAM path permits a physical
 transaction only when the reported SDRAM configuration is valid and the
