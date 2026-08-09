@@ -988,3 +988,56 @@ guarantees.
 
 This checkpoint does not establish Quartus timing closure, FPGA resource
 usage, or physical-hardware operation.
+
+### Milestone 6E-2 Integrated GPU/DMA Contention
+
+Run the focused production contention regression with:
+
+    make -C sim gpu-dma-contention-test
+
+The Milestone 6E aggregate is now:
+
+    make -C sim m6e-test
+
+Milestone 6E-2 verifies concurrent external-SDRAM traffic from the real
+synthesizable GPU renderer and DMA copy engine.
+
+A real Jupiter CPU program configures a 2x2 GPU render and a 64-word DMA
+copy using disjoint external-SDRAM regions. It starts the GPU, starts DMA,
+polls both CPU-visible STATUS registers, and halts only after both report
+DONE.
+
+The CPU performs no external-SDRAM data transaction during this test.
+
+The regression verifies:
+
+- exact GPU traffic of 132 reads plus 128 framebuffer writes;
+- exact DMA traffic of 64 source reads plus 64 destination writes;
+- GPU progress while DMA is busy and requesting;
+- DMA progress while a GPU request is pending;
+- simultaneous GPU and DMA requests;
+- held contested production grants;
+- completed contested wins by GPU;
+- completed contested wins by DMA;
+- preservation of every tilemap and tile-data source word;
+- correctness of the complete 16x16 RGB565 framebuffer;
+- preservation of all 64 DMA source words;
+- exact copies in all 64 DMA destination words;
+- unrelated low/high memory guards;
+- zero CPU external-SDRAM traffic;
+- 392 physical READ commands;
+- 384 physical WRITE commands;
+- 776 ACTIVE commands; and
+- no behavioral-SDRAM protocol error.
+
+The test uses only production GPU and DMA master traffic and introduces no
+new synthesizable behavior.
+
+M6E-2 addresses the GPU/DMA contention requirement. Simultaneous
+CPU/GPU/DMA contention remains a separate following checkpoint.
+
+Simulation cycle and command counts are verification observations only.
+They are not throughput, fairness-latency, timing, or performance guarantees.
+
+This checkpoint does not establish Quartus timing closure, FPGA resource
+usage, or physical-hardware operation.
