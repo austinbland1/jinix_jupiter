@@ -59,6 +59,15 @@ module jupiter_cpu_subsystem
     wire [31:0] gpu_rdata;
     wire        gpu_ready;
 
+    // DMA control-MMIO target interface.
+    wire        dma_valid;
+    wire        dma_write;
+    wire [31:0] dma_addr;
+    wire [31:0] dma_wdata;
+    wire  [3:0] dma_wstrb;
+    wire [31:0] dma_rdata;
+    wire        dma_ready;
+
     // CPU external-SDRAM target interface from the interconnect.
     wire        sdram_valid;
     wire        sdram_write;
@@ -76,6 +85,17 @@ module jupiter_cpu_subsystem
     wire  [3:0] gpu_sdram_wstrb;
     wire [31:0] gpu_sdram_rdata;
     wire        gpu_sdram_ready;
+
+    // DMA external-SDRAM master interface.
+    //
+    // M6B-2 exposes these production DMA ports but deliberately leaves
+    // them disconnected from the two-master CPU/GPU arbiter. M6C owns
+    // the three-master arbitration change.
+    wire        dma_sdram_valid;
+    wire        dma_sdram_write;
+    wire [31:0] dma_sdram_addr;
+    wire [31:0] dma_sdram_wdata;
+    wire  [3:0] dma_sdram_wstrb;
 
     // Shared post-arbitration 32-bit interface toward the M4 frontend.
     wire        shared_sdram_valid;
@@ -148,6 +168,14 @@ module jupiter_cpu_subsystem
         .gpu_wstrb  (gpu_wstrb),
         .gpu_rdata  (gpu_rdata),
         .gpu_ready  (gpu_ready),
+
+        .dma_valid  (dma_valid),
+        .dma_write  (dma_write),
+        .dma_addr   (dma_addr),
+        .dma_wdata  (dma_wdata),
+        .dma_wstrb  (dma_wstrb),
+        .dma_rdata  (dma_rdata),
+        .dma_ready  (dma_ready),
 
         .sdram_valid (sdram_valid),
         .sdram_write (sdram_write),
@@ -289,6 +317,32 @@ module jupiter_cpu_subsystem
         .sdram_wstrb (gpu_sdram_wstrb),
         .sdram_rdata (gpu_sdram_rdata),
         .sdram_ready (gpu_sdram_ready)
+    );
+
+
+    jupiter_dma dma
+    (
+        .clk   (clk),
+        .reset (reset),
+
+        .valid (dma_valid),
+        .write (dma_write),
+        .addr  (dma_addr),
+        .wdata (dma_wdata),
+        .wstrb (dma_wstrb),
+
+        .rdata (dma_rdata),
+        .ready (dma_ready),
+
+        .sdram_valid (dma_sdram_valid),
+        .sdram_write (dma_sdram_write),
+        .sdram_addr  (dma_sdram_addr),
+        .sdram_wdata (dma_sdram_wdata),
+        .sdram_wstrb (dma_sdram_wstrb),
+
+        // M6B-2 intentionally does not connect DMA to the SDRAM arbiter.
+        .sdram_rdata (32'h00000000),
+        .sdram_ready (1'b0)
     );
 
 endmodule

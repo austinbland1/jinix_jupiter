@@ -38,6 +38,15 @@ module jupiter_interconnect_tb;
     reg  [31:0] gpu_rdata;
     reg         gpu_ready;
 
+    wire        dma_valid;
+    wire        dma_write;
+    wire [31:0] dma_addr;
+    wire [31:0] dma_wdata;
+    wire  [3:0] dma_wstrb;
+
+    reg  [31:0] dma_rdata;
+    reg         dma_ready;
+
     wire        sdram_valid;
     wire        sdram_write;
     wire [31:0] sdram_addr;
@@ -85,6 +94,14 @@ module jupiter_interconnect_tb;
         .gpu_rdata  (gpu_rdata),
         .gpu_ready  (gpu_ready),
 
+        .dma_valid  (dma_valid),
+        .dma_write  (dma_write),
+        .dma_addr   (dma_addr),
+        .dma_wdata  (dma_wdata),
+        .dma_wstrb  (dma_wstrb),
+        .dma_rdata  (dma_rdata),
+        .dma_ready  (dma_ready),
+
         .sdram_valid (sdram_valid),
         .sdram_write (sdram_write),
         .sdram_addr  (sdram_addr),
@@ -128,12 +145,15 @@ module jupiter_interconnect_tb;
         gpu_rdata = 32'h00000000;
         gpu_ready = 1'b0;
 
+        dma_rdata = 32'h00000000;
+        dma_ready = 1'b0;
+
         sdram_rdata = 32'h00000000;
         sdram_ready = 1'b0;
 
         #1;
 
-        check(!ram_valid && !mmio_valid && !gpu_valid && !sdram_valid,
+        check(!ram_valid && !mmio_valid && !gpu_valid && !dma_valid && !sdram_valid,
               "idle master selects no target");
         check(!m_ready,
               "idle master receives no completion");
@@ -268,17 +288,66 @@ module jupiter_interconnect_tb;
               gpu_wstrb == 4'b0101,
               "GPU write data and strobes are forwarded");
 
-        // First address after the GPU aperture is unmapped.
+        // Milestone 6 DMA control-MMIO target.
         m_addr      = 32'h00001200;
         m_write     = 1'b0;
         m_wstrb     = 4'b0000;
         gpu_ready   = 1'b0;
+        dma_rdata   = 32'h0BADF00D;
+        dma_ready   = 1'b0;
         #1;
 
-        check(!ram_valid && !mmio_valid && !gpu_valid && !sdram_valid,
-              "address after GPU aperture selects no target");
+        check(!ram_valid && !mmio_valid && !gpu_valid &&
+              dma_valid && !sdram_valid,
+              "DMA base address selects only DMA");
+        check(!m_ready,
+              "DMA stall propagates to master");
+        check(dma_addr == 32'h00001200,
+              "DMA receives full system address");
+        check(!dma_write && dma_wstrb == 4'b0000,
+              "DMA read control signals are forwarded");
+
+        dma_ready = 1'b1;
+        #1;
+
+        check(m_ready,
+              "DMA completion propagates to master");
+        check(m_rdata == 32'h0BADF00D,
+              "DMA read data propagates to master");
+
+        // Highest aligned word in the DMA aperture.
+        m_addr = 32'h000012FC;
+        #1;
+
+        check(!ram_valid && !mmio_valid && !gpu_valid &&
+              dma_valid && !sdram_valid,
+              "DMA upper boundary selects only DMA");
+
+        // DMA write forwarding.
+        m_addr  = 32'h00001210;
+        m_write = 1'b1;
+        m_wdata = 32'h10203040;
+        m_wstrb = 4'b1010;
+        #1;
+
+        check(dma_valid && dma_write,
+              "DMA write request is forwarded");
+        check(dma_wdata == 32'h10203040 &&
+              dma_wstrb == 4'b1010,
+              "DMA write data and strobes are forwarded");
+
+        // First aligned address after the DMA aperture is unmapped.
+        m_addr      = 32'h00001300;
+        m_write     = 1'b0;
+        m_wstrb     = 4'b0000;
+        dma_ready   = 1'b0;
+        #1;
+
+        check(!ram_valid && !mmio_valid && !gpu_valid &&
+              !dma_valid && !sdram_valid,
+              "address after DMA aperture selects no target");
         check(m_ready && m_rdata == 32'h00000000,
-              "address after GPU aperture uses unmapped response");
+              "address after DMA aperture uses unmapped response");
 
         // Misaligned access must not reach any target.
         m_addr       = 32'h00001001;
@@ -287,7 +356,7 @@ module jupiter_interconnect_tb;
         mmio_ready   = 1'b0;
         #1;
 
-        check(!ram_valid && !mmio_valid && !gpu_valid && !sdram_valid,
+        check(!ram_valid && !mmio_valid && !gpu_valid && !dma_valid && !sdram_valid,
               "misaligned access selects no target");
         check(m_ready && m_rdata == 32'h00000000,
               "misaligned access receives deterministic invalid response");
@@ -296,7 +365,7 @@ module jupiter_interconnect_tb;
         m_addr = 32'h00001004;
         #1;
 
-        check(!ram_valid && !mmio_valid && !gpu_valid && !sdram_valid,
+        check(!ram_valid && !mmio_valid && !gpu_valid && !dma_valid && !sdram_valid,
               "unmapped low address selects no target");
         check(m_ready && m_rdata == 32'h00000000,
               "unmapped low read completes with zero");
@@ -338,7 +407,7 @@ module jupiter_interconnect_tb;
         sdram_ready = 1'b0;
         #1;
 
-        check(!ram_valid && !mmio_valid && !gpu_valid && !sdram_valid,
+        check(!ram_valid && !mmio_valid && !gpu_valid && !dma_valid && !sdram_valid,
               "address above M4 SDRAM aperture selects no target");
         check(m_ready && m_rdata == 32'h00000000,
               "address above M4 SDRAM aperture uses unmapped response");
@@ -350,7 +419,7 @@ module jupiter_interconnect_tb;
         m_wstrb  = 4'b1111;
         #1;
 
-        check(!ram_valid && !mmio_valid && !gpu_valid && !sdram_valid,
+        check(!ram_valid && !mmio_valid && !gpu_valid && !dma_valid && !sdram_valid,
               "unmapped write selects no target");
         check(m_ready,
               "unmapped write completes deterministically");
@@ -358,10 +427,14 @@ module jupiter_interconnect_tb;
         check(
             !(ram_valid && mmio_valid) &&
             !(ram_valid && gpu_valid) &&
+            !(ram_valid && dma_valid) &&
             !(ram_valid && sdram_valid) &&
             !(mmio_valid && gpu_valid) &&
+            !(mmio_valid && dma_valid) &&
             !(mmio_valid && sdram_valid) &&
-            !(gpu_valid && sdram_valid),
+            !(gpu_valid && dma_valid) &&
+            !(gpu_valid && sdram_valid) &&
+            !(dma_valid && sdram_valid),
             "implemented targets are never selected simultaneously"
         );
 

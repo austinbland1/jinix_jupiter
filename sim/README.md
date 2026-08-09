@@ -626,3 +626,50 @@ belong to later Milestone 6 checkpoints.
 This regression is simulation evidence only. It does not establish Quartus
 synthesis, timing closure, measured DMA throughput, FPGA resource usage, or
 operation on physical hardware.
+
+### Milestone 6B-2 CPU-Visible DMA MMIO Integration
+
+Run the focused CPU-to-DMA control-path regression with:
+
+    make -C sim cpu-dma-mmio-test
+
+The Milestone 6B aggregate runs with:
+
+    make -C sim m6b-test
+
+Milestone 6B-2 integrates the DMA control aperture at
+`0x00001200 - 0x000012FF` into the production CPU interconnect and
+instantiates `jupiter_dma` in `jupiter_cpu_subsystem`.
+
+The focused integration regression executes a real Jupiter CPU program that:
+
+- constructs the DMA MMIO base address;
+- writes and reads SRC_BASE;
+- writes and reads DST_BASE;
+- writes and reads LENGTH_WORDS;
+- issues CONTROL.START;
+- observes zero-length immediate completion through STATUS.DONE;
+- reads a reserved DMA offset as deterministic zero;
+- verifies DMA MMIO selects only the DMA target;
+- verifies scratch and GPU control state remain unchanged.
+
+The focused CPU-to-DMA regression reports 28 deterministic checks.
+Its observed 37 program cycles are a simulation result only and are not a
+DMA or CPU performance guarantee.
+
+The interconnect regression now includes the complete DMA MMIO aperture and
+reports 55 deterministic checks.
+
+`jupiter_dma.sv` is now included in the production QIP source set.
+
+This remains a control-path checkpoint. Although the DMA block exposes its
+external-SDRAM master interface, that interface is intentionally not yet
+connected to `jupiter_sdram_arbiter`. The production arbiter remains the
+previously verified CPU/GPU two-master design through M6B-2.
+
+Nonzero DMA transfers therefore do not yet make progress. Three-master
+CPU/GPU/DMA SDRAM arbitration belongs to the next Milestone 6 checkpoint.
+
+These regressions are simulation evidence only. They do not establish
+Quartus synthesis, timing closure, measured DMA throughput, FPGA resource
+usage, or operation on physical hardware.

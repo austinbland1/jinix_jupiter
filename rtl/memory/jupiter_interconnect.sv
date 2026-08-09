@@ -40,6 +40,16 @@ module jupiter_interconnect
     input  wire [31:0] gpu_rdata,
     input  wire        gpu_ready,
 
+    // Milestone 6 DMA control-MMIO target.
+    output wire        dma_valid,
+    output wire        dma_write,
+    output wire [31:0] dma_addr,
+    output wire [31:0] dma_wdata,
+    output wire [3:0]  dma_wstrb,
+
+    input  wire [31:0] dma_rdata,
+    input  wire        dma_ready,
+
     // Milestone 4 external SDRAM target.
     output wire        sdram_valid,
     output wire        sdram_write,
@@ -59,6 +69,9 @@ module jupiter_interconnect
 
     localparam [31:0] GPU_START  = 32'h00001100;
     localparam [31:0] GPU_END    = 32'h000011FF;
+
+    localparam [31:0] DMA_START  = 32'h00001200;
+    localparam [31:0] DMA_END    = 32'h000012FF;
 
     localparam [31:0] SDRAM_START = 32'h10000000;
     localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
@@ -82,6 +95,12 @@ module jupiter_interconnect
         aligned &&
         (m_addr >= GPU_START) &&
         (m_addr <= GPU_END);
+
+    wire dma_selected =
+        m_valid &&
+        aligned &&
+        (m_addr >= DMA_START) &&
+        (m_addr <= DMA_END);
 
     wire sdram_selected =
         m_valid &&
@@ -108,6 +127,12 @@ module jupiter_interconnect
     assign gpu_wdata = m_wdata;
     assign gpu_wstrb = m_wstrb;
 
+    assign dma_valid = dma_selected;
+    assign dma_write = m_write;
+    assign dma_addr  = m_addr;
+    assign dma_wdata = m_wdata;
+    assign dma_wstrb = m_wstrb;
+
     assign sdram_valid = sdram_selected;
     assign sdram_write = m_write;
     assign sdram_addr  = m_addr;
@@ -124,6 +149,7 @@ module jupiter_interconnect
         ram_selected   ? ram_ready :
         mmio_selected  ? mmio_ready :
         gpu_selected   ? gpu_ready :
+        dma_selected   ? dma_ready :
         sdram_selected ? sdram_ready :
                          1'b1;
 
@@ -132,6 +158,7 @@ module jupiter_interconnect
         ram_selected   ? ram_rdata :
         mmio_selected  ? mmio_rdata :
         gpu_selected   ? gpu_rdata :
+        dma_selected   ? dma_rdata :
         sdram_selected ? sdram_rdata :
                          32'h00000000;
 

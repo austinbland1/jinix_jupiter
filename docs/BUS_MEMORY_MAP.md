@@ -91,7 +91,7 @@ The complete Milestone 6 DMA arbitration contract is documented in
 | `0x00000000` | `0x00000FFF` | 4 KiB | Internal/test RAM | Implemented in M3 |
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
 | `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Integrated in M5B-2 |
-| `0x00001200` | `0x000012FF` | 256 B | DMA control MMIO | Selected in M6A; integration pending |
+| `0x00001200` | `0x000012FF` | 256 B | DMA control MMIO | Integrated in M6B-2 |
 | `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.
@@ -187,10 +187,17 @@ The selected register layout and transfer semantics are documented in
 This aperture does not overlap internal RAM, scratch MMIO, GPU control MMIO,
 or external SDRAM.
 
-At the M6A architecture checkpoint this range is selected but not yet
-integrated into the production interconnect. Until M6 implementation reaches
-that integration checkpoint, accesses to the range retain the existing
-deterministic unmapped response.
+Milestone 6B-2 integrates this aperture as a distinct CPU-visible
+interconnect target backed by `jupiter_dma`.
+
+Aligned CPU accesses within this aperture are routed only to the DMA control
+target. Reserved aligned offsets remain owned by the DMA aperture and use the
+deterministic reserved-register behavior defined by
+`docs/DMA_ARCHITECTURE.md`.
+
+The DMA external-memory master is not connected to the shared SDRAM arbiter
+at M6B-2. That three-master integration belongs to a later Milestone 6
+checkpoint.
 
 ## 8. Invalid and Unmapped Accesses
 
@@ -230,11 +237,12 @@ for a valid aligned request:
 1. internal RAM for `0x00000000` through `0x00000FFF`;
 2. MMIO scratch register for `0x00001000` through `0x00001003`;
 3. GPU control MMIO for `0x00001100` through `0x000011FF`;
-4. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
-5. otherwise the deterministic unmapped response.
+4. DMA control MMIO for `0x00001200` through `0x000012FF`;
+5. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
+6. otherwise the deterministic unmapped response.
 
-The GPU MMIO target is a distinct decoded target and does not overlap the
-existing RAM, scratch-MMIO, or SDRAM selections.
+The GPU and DMA MMIO targets are distinct decoded targets and do not
+overlap the existing RAM, scratch-MMIO, SDRAM, or each other.
 
 Within the maximum SDRAM aperture, the SDRAM path permits a physical
 transaction only when the reported SDRAM configuration is valid and the
