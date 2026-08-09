@@ -13,7 +13,23 @@ module jupiter_system
     output wire       VBlank,
     output wire       VSync,
 
-    output wire [7:0] video
+    output wire [7:0] video,
+
+    // MiSTer-reported external SDRAM configuration.
+    input  wire [15:0] sdram_sz,
+
+    // External SDR SDRAM interface.
+    // SDRAM_CLK is intentionally deferred to top-level integration.
+    output wire        SDRAM_CKE,
+    output wire [12:0] SDRAM_A,
+    output wire  [1:0] SDRAM_BA,
+    inout  wire [15:0] SDRAM_DQ,
+    output wire        SDRAM_DQML,
+    output wire        SDRAM_DQMH,
+    output wire        SDRAM_nCS,
+    output wire        SDRAM_nCAS,
+    output wire        SDRAM_nRAS,
+    output wire        SDRAM_nWE
 );
 
     // Milestone 1 Jupiter skeleton state.
@@ -29,6 +45,30 @@ module jupiter_system
         .heartbeat  (jupiter_heartbeat),
         .tick_cnt   (jupiter_tick_cnt),
         .done_pulse (jupiter_done_pulse)
+    );
+
+
+    wire jupiter_cpu_halted;
+
+    jupiter_cpu_subsystem cpu_subsystem
+    (
+        .clk        (clk),
+        .reset      (reset),
+
+        .sdram_sz   (sdram_sz),
+
+        .SDRAM_CKE  (SDRAM_CKE),
+        .SDRAM_A    (SDRAM_A),
+        .SDRAM_BA   (SDRAM_BA),
+        .SDRAM_DQ   (SDRAM_DQ),
+        .SDRAM_DQML (SDRAM_DQML),
+        .SDRAM_DQMH (SDRAM_DQMH),
+        .SDRAM_nCS  (SDRAM_nCS),
+        .SDRAM_nCAS (SDRAM_nCAS),
+        .SDRAM_nRAS (SDRAM_nRAS),
+        .SDRAM_nWE  (SDRAM_nWE),
+
+        .halted     (jupiter_cpu_halted)
     );
 
     // Preserve the known-good MiSTer template demo-video path.

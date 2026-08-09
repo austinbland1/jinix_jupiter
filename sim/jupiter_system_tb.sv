@@ -17,6 +17,18 @@ wire       dut_VBlank;
 wire       dut_VSync;
 wire [7:0] dut_video;
 
+// SDRAM interface propagated by jupiter_system.
+wire        dut_SDRAM_CKE;
+wire [12:0] dut_SDRAM_A;
+wire  [1:0] dut_SDRAM_BA;
+wire [15:0] dut_SDRAM_DQ;
+wire        dut_SDRAM_DQML;
+wire        dut_SDRAM_DQMH;
+wire        dut_SDRAM_nCS;
+wire        dut_SDRAM_nCAS;
+wire        dut_SDRAM_nRAS;
+wire        dut_SDRAM_nWE;
+
 // Direct reference mycore outputs.
 wire       ref_ce_pix;
 wire       ref_HBlank;
@@ -43,7 +55,21 @@ jupiter_system dut
     .HSync      (dut_HSync),
     .VBlank     (dut_VBlank),
     .VSync      (dut_VSync),
-    .video      (dut_video)
+    .video      (dut_video),
+
+    // Existing wrapper regression runs without installed SDRAM.
+    .sdram_sz   (16'h0000),
+
+    .SDRAM_CKE  (dut_SDRAM_CKE),
+    .SDRAM_A    (dut_SDRAM_A),
+    .SDRAM_BA   (dut_SDRAM_BA),
+    .SDRAM_DQ   (dut_SDRAM_DQ),
+    .SDRAM_DQML (dut_SDRAM_DQML),
+    .SDRAM_DQMH (dut_SDRAM_DQMH),
+    .SDRAM_nCS  (dut_SDRAM_nCS),
+    .SDRAM_nCAS (dut_SDRAM_nCAS),
+    .SDRAM_nRAS (dut_SDRAM_nRAS),
+    .SDRAM_nWE  (dut_SDRAM_nWE)
 );
 
 mycore reference_core
@@ -75,6 +101,9 @@ endtask
 initial begin
     // Hold reset through several rising clock edges.
     repeat (4) @(posedge clk);
+
+    check(dut_SDRAM_CKE == 1'b1,
+          "wrapper propagates SDRAM clock-enable from CPU subsystem");
 
     // Release away from the active edge.
     @(negedge clk);
