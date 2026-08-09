@@ -524,3 +524,62 @@ This is simulation evidence for the production renderer, arbiter, frontend,
 controller, and physical-command interface operating together. It is not
 FPGA hardware validation, timing closure, measured performance, or proof
 that the framebuffer is currently displayed by the live MiSTer video path.
+
+### Milestone 5E-2 CPU/GPU SDRAM Contention
+
+Run the complete Milestone 5E integration regressions with:
+
+    make -C sim m5e-test
+
+Milestone 5E-2 validates simultaneous production CPU and GPU access to
+external SDRAM while a complete deterministic 2x2 render is in progress.
+
+A real Jupiter CPU program configures the GPU through normal MMIO, writes
+CONTROL.START, and then remains active instead of halting. While the GPU is
+rendering, the CPU performs 64 store/load pairs to a separate SDRAM
+contention word. It then polls GPU STATUS until done and uses ordinary CPU
+LDW instructions to read back selected framebuffer words, both unrelated
+memory guards, and the final contention value.
+
+The regression proves that both masters make progress while the other is
+requesting SDRAM. It observes simultaneous CPU/GPU requests, at least one
+held contested arbiter grant, and completed contested transactions won by
+both CPU and GPU.
+
+The CPU completes exactly:
+
+    69 logical reads
+    64 logical writes
+    133 logical SDRAM transactions total
+
+The GPU simultaneously retains its complete-render transaction count:
+
+    132 logical reads
+    128 logical writes
+    260 logical SDRAM transactions total
+
+Together these 393 logical 32-bit transactions produce exactly:
+
+    402 physical READ commands
+    384 physical WRITE commands
+    786 ACTIVE commands
+
+The behavioral SDRAM model reports no protocol error. All 64 CPU contention
+load results match the most recently completed CPU store, the final
+contention word is 64, all tilemap and tile-data source words remain intact,
+both unrelated memory guards survive, and every word of the deterministic
+16x16 framebuffer remains correct.
+
+The CPU also verifies selected results through its architectural load path:
+the first and final framebuffer words, both guards, the final contention
+word, and GPU STATUS done are all read correctly before HALT.
+
+The focused simulation currently observes nonzero simultaneous-request and
+contested-completion counts for both masters. Their exact cycle counts are
+implementation observations rather than architectural performance
+requirements.
+
+This is simulation evidence for concurrent CPU/GPU operation through the
+production arbiter, frontend, SDRAM controller, and behavioral SDRAM model.
+It is not FPGA hardware validation, timing closure, measured hardware
+performance, or proof of live framebuffer scanout on MiSTer.

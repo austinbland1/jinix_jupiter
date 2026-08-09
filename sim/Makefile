@@ -48,6 +48,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	gpu-full-tile-test gpu-full-map-test \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test \
 	sdram-arbiter-test shared-sdram-test gpu-sdram-render-test \
+	gpu-sdram-contention-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
@@ -71,7 +72,7 @@ m5c-test: sdram-arbiter-test shared-sdram-test
 
 m5d-test: gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test gpu-full-tile-test gpu-full-map-test
 
-m5e-test: gpu-sdram-render-test
+m5e-test: gpu-sdram-render-test gpu-sdram-contention-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -173,6 +174,10 @@ gpu-sdram-render-test:
 	iverilog -g2012 -s jupiter_gpu_sdram_render_tb -o jupiter_gpu_sdram_render.vvp $(CPU_SUBSYSTEM_RTL) $(SDRAM_MODEL) jupiter_gpu_sdram_render_tb.sv
 	vvp -n jupiter_gpu_sdram_render.vvp
 
+gpu-sdram-contention-test:
+	iverilog -g2012 -s jupiter_gpu_sdram_contention_tb -o jupiter_gpu_sdram_contention.vvp $(CPU_SUBSYSTEM_RTL) $(SDRAM_MODEL) jupiter_gpu_sdram_contention_tb.sv
+	vvp -n jupiter_gpu_sdram_contention.vvp
+
 sdram-frontend-test:
 	iverilog -g2012 -s jupiter_sdram_frontend_tb -o jupiter_sdram_frontend.vvp $(SDRAM_FRONTEND_RTL) jupiter_sdram_frontend_tb.sv
 	vvp -n jupiter_sdram_frontend.vvp
@@ -202,6 +207,6 @@ clean:
 		jupiter_gpu_full_map.vvp jupiter_cpu_subsystem.vvp \
 		jupiter_cpu_memory_map.vvp jupiter_cpu_gpu_mmio.vvp \
 		jupiter_sdram_arbiter.vvp jupiter_shared_sdram.vvp \
-		jupiter_gpu_sdram_render.vvp \
+		jupiter_gpu_sdram_render.vvp jupiter_gpu_sdram_contention.vvp \
 		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \
 		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp
