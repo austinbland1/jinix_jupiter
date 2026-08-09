@@ -50,11 +50,12 @@ module jupiter_gpu_2d
     reg busy;
     reg done;
 
-    // Initial renderer sequencing state.
+    // Renderer sequencing state.
     //
-    // M5D-1 established the tilemap fetch. M5D-2 continues with the four
-    // 32-bit tile-data reads that make up tile row zero, then deliberately
-    // stops before framebuffer traffic.
+    // M5D-1 established tilemap fetch, M5D-2 tile-data reads, and M5D-3
+    // framebuffer writes for row zero. M5D-4 repeats that proven row path
+    // across all eight rows of tile (0,0), then deliberately stops before
+    // tile-coordinate traversal.
     localparam [2:0] RENDER_IDLE               = 3'd0;
     localparam [2:0] RENDER_TILEMAP_WAIT       = 3'd1;
     localparam [2:0] RENDER_TILE_DATA_PENDING  = 3'd2;
@@ -62,6 +63,7 @@ module jupiter_gpu_2d
     localparam [2:0] RENDER_TILE_ROW_PENDING   = 3'd4;
     localparam [2:0] RENDER_FRAMEBUFFER_WAIT   = 3'd5;
     localparam [2:0] RENDER_ROW_WRITTEN        = 3'd6;
+    localparam [2:0] RENDER_TILE_COMPLETE      = 3'd7;
 
     reg [2:0] renderer_state;
     reg [7:0] tile_x;
@@ -70,6 +72,7 @@ module jupiter_gpu_2d
 
     // Tile row zero consists of four 32-bit words, each containing two
     // adjacent RGB565 pixels.
+    reg [2:0] tile_row;
     reg [1:0] tile_word;
     reg [31:0] tile_row_word0;
     reg [31:0] tile_row_word1;
@@ -83,22 +86,31 @@ module jupiter_gpu_2d
         active_tilemap_base +
         {14'd0, tilemap_linear_index, 2'b00};
 
-    // One tile occupies 128 bytes. M5D-2 reads only row zero, whose four
-    // words are therefore at tile base offsets +0, +4, +8, and +12.
+    // One tile occupies 128 bytes. Each of its eight rows occupies 16 bytes,
+    // represented by four aligned 32-bit words.
     wire [31:0] tiledata_tile_base =
         active_tiledata_base +
         {9'd0, current_tile_index, 7'd0};
 
     wire [31:0] tiledata_request_addr =
         tiledata_tile_base +
+        {25'd0, tile_row, 4'b0000} +
         {28'd0, tile_word, 2'b00};
 
-    // M5D-3 handles only tile (0,0), row zero. Those eight pixels occupy
-    // the first sixteen framebuffer bytes, represented by four 32-bit words.
-    // Later renderer traversal will extend this address calculation across
-    // tile rows and tile coordinates.
+    // The linear framebuffer row stride is width_tiles * 16 bytes because
+    // each tile contributes eight 16-bit pixels to one rendered row.
+    //
+    // M5D-4 still renders only tile_x == 0, so the horizontal tile offset
+    // remains zero at this checkpoint.
+    wire [10:0] framebuffer_row_tiles =
+        tile_row * active_map_size[7:0];
+
+    wire [31:0] framebuffer_row_offset =
+        {17'd0, framebuffer_row_tiles, 4'b0000};
+
     wire [31:0] framebuffer_request_addr =
         active_framebuffer_base +
+        framebuffer_row_offset +
         {28'd0, tile_word, 2'b00};
 
     reg [31:0] framebuffer_request_data;
@@ -197,6 +209,7 @@ module jupiter_gpu_2d
             tile_y             <= 8'd0;
             current_tile_index <= 16'd0;
 
+            tile_row       <= 3'd0;
             tile_word      <= 2'd0;
             tile_row_word0 <= 32'h00000000;
             tile_row_word1 <= 32'h00000000;
@@ -252,6 +265,20 @@ module jupiter_gpu_2d
                 end else begin
                     tile_word <= tile_word + 2'd1;
                 end
+            end else if (renderer_state == RENDER_ROW_WRITTEN) begin
+                if (tile_row == 3'd7) begin
+                    renderer_state <= RENDER_TILE_COMPLETE;
+                end else begin
+                    tile_row <= tile_row + 3'd1;
+                    tile_word <= 2'd0;
+
+                    tile_row_word0 <= 32'h00000000;
+                    tile_row_word1 <= 32'h00000000;
+                    tile_row_word2 <= 32'h00000000;
+                    tile_row_word3 <= 32'h00000000;
+
+                    renderer_state <= RENDER_TILE_DATA_WAIT;
+                end
             end
 
             if (valid && write) begin
@@ -268,6 +295,7 @@ module jupiter_gpu_2d
                             tile_y <= 8'd0;
                             current_tile_index <= 16'd0;
 
+                            tile_row       <= 3'd0;
                             tile_word      <= 2'd0;
                             tile_row_word0 <= 32'h00000000;
                             tile_row_word1 <= 32'h00000000;

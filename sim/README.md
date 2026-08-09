@@ -392,3 +392,38 @@ request stability, and reset behavior.
 Milestone 5D-3 deliberately stops after writing tile `(0, 0)` row zero. It
 does not yet advance to row one, advance tile coordinates, complete a nonzero
 render, or generate a complete rendered image.
+
+### Milestone 5D-4 Full Single-Tile Rendering
+
+Run the current Milestone 5D renderer regressions with:
+
+    make -C sim m5d-test
+
+Milestone 5D-4 extends the proven row-zero path across all eight rows of one
+8x8 RGB565 tile while deliberately leaving tile-coordinate traversal for the
+next checkpoint.
+
+Each tile-data row occupies 16 bytes, so tile-data reads use:
+
+    TILEDATA_BASE + (tile_index * 128) + (tile_row * 16) + (word * 4)
+
+Framebuffer placement uses the stride of the complete rendered image rather
+than treating one tile as a tightly packed standalone block. Each rendered
+scanline is `width_tiles * 16` bytes, so tile `(0, 0)` writes use:
+
+    FRAMEBUFFER_BASE + (tile_row * width_tiles * 16) + (word * 4)
+
+`jupiter_gpu_full_tile_tb.sv` deliberately configures a two-tile-wide map,
+giving a 32-byte framebuffer scanline stride. It verifies all eight tile-data
+rows, all eight framebuffer rows, later-row request stability under stalls,
+preservation of tile coordinates, and the row-seven framebuffer base at
+`FRAMEBUFFER_BASE + 0xE0`.
+
+One complete tile requires one tilemap read, thirty-two tile-data reads, and
+thirty-two framebuffer writes. The focused regression verifies exactly 33
+read completions and 32 write completions.
+
+Milestone 5D-4 deliberately stops after tile `(0, 0)` row seven. The GPU
+remains busy with done clear and the graphics-memory interface idle. It does
+not yet advance tile X or tile Y, complete a nonzero render, or generate a
+complete multi-tile rendered image.
