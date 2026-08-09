@@ -193,13 +193,13 @@ Implement the first useful Jupiter hardware-assisted 2D graphics subsystem. Prio
 - Known expected rendered image/pixel results suitable for automated comparison.
 
 ### Acceptance Criteria
-- [ ] The selected initial 2D features are documented.
-- [ ] CPU writes can configure and control the implemented graphics functions.
-- [ ] Selected rendering operations generate deterministic expected pixel/image results in simulation.
-- [ ] Address/memory accesses remain within documented regions.
-- [ ] Graphics operation does not corrupt unrelated memory.
-- [ ] Tests automatically report pass/fail.
-- [ ] Features not selected for the first implementation are not required for milestone completion.
+- [x] The selected initial 2D features are documented.
+- [x] CPU writes can configure and control the implemented graphics functions.
+- [x] Selected rendering operations generate deterministic expected pixel/image results in simulation.
+- [x] Address/memory accesses remain within documented regions.
+- [x] Graphics operation does not corrupt unrelated memory.
+- [x] Tests automatically report pass/fail.
+- [x] Features not selected for the first implementation are not required for milestone completion.
 
 ### Non-Goals
 - No tile size is mandated at this stage.
