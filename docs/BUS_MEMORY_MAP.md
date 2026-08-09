@@ -83,7 +83,7 @@ documented arbitration policy before that master shares the interconnect.
 | --- | --- | ---: | --- | --- |
 | `0x00000000` | `0x00000FFF` | 4 KiB | Internal/test RAM | Implemented in M3 |
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
-| `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Selected in M5; RTL pending |
+| `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Register RTL implemented in M5B-1; interconnect integration pending |
 | `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.

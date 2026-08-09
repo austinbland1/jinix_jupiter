@@ -23,6 +23,7 @@ CPU_RTL = ../rtl/cpu/jupiter_cpu.sv
 INTERCONNECT_RTL = ../rtl/memory/jupiter_interconnect.sv
 INTERNAL_RAM_RTL = ../rtl/memory/jupiter_internal_ram.sv
 MMIO_SCRATCH_RTL = ../rtl/peripherals/jupiter_mmio_scratch.sv
+GPU_2D_RTL = ../rtl/gpu/jupiter_gpu_2d.sv
 SDRAM_FRONTEND_RTL = ../rtl/memory/jupiter_sdram_frontend.sv
 SDRAM_CONTROLLER_RTL = ../rtl/memory/jupiter_sdram_controller.sv
 SDRAM_MODEL = jupiter_sdram_model.sv
@@ -39,7 +40,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
-	interconnect-test internal-ram-test mmio-scratch-test \
+	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test \
 	cpu-subsystem-test cpu-memory-map-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
@@ -110,6 +111,10 @@ mmio-scratch-test:
 	iverilog -g2012 -s jupiter_mmio_scratch_tb -o jupiter_mmio_scratch.vvp $(MMIO_SCRATCH_RTL) jupiter_mmio_scratch_tb.sv
 	vvp -n jupiter_mmio_scratch.vvp
 
+gpu-regs-test:
+	iverilog -g2012 -s jupiter_gpu_2d_tb -o jupiter_gpu_2d.vvp $(GPU_2D_RTL) jupiter_gpu_2d_tb.sv
+	vvp -n jupiter_gpu_2d.vvp
+
 cpu-subsystem-test:
 	iverilog -g2012 -s jupiter_cpu_subsystem_tb -o jupiter_cpu_subsystem.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_subsystem_tb.sv
 	vvp -n jupiter_cpu_subsystem.vvp
@@ -141,7 +146,8 @@ clean:
 		jupiter_cpu_memory.vvp jupiter_cpu_control.vvp \
 		jupiter_cpu_program.vvp \
 		jupiter_interconnect.vvp jupiter_internal_ram.vvp \
-		jupiter_mmio_scratch.vvp jupiter_cpu_subsystem.vvp \
+		jupiter_mmio_scratch.vvp jupiter_gpu_2d.vvp \
+		jupiter_cpu_subsystem.vvp \
 		jupiter_cpu_memory_map.vvp \
 		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \
 		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp

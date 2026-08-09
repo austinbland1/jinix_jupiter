@@ -1,4 +1,4 @@
-# Jinix Jupiter — Milestone 1, 2, and 3 Simulation
+# Jinix Jupiter — Simulation Regression Suite
 
 ## Quick start
 
@@ -209,3 +209,31 @@ The behavioral SDRAM model and host-side Icarus regressions validate
 functional RTL behavior only. They do not establish Quartus timing closure,
 FPGA resource usage, physical-SDRAM timing, or operation on SuperStation One
 hardware.
+
+## Milestone 5 GPU Register Regression
+
+Run the standalone Milestone 5 GPU control-register regression with:
+
+    make -C sim gpu-regs-test
+
+`jupiter_gpu_2d_tb.sv` verifies the CPU-visible register contract before
+system-interconnect or rendering integration.
+
+The focused regression covers:
+
+- register reset values;
+- deterministic register reads and writes;
+- byte write strobes;
+- reserved-offset behavior;
+- configuration snapshot on `CONTROL.START`;
+- zero-dimension immediate completion;
+- rejection of another start request while busy; and
+- the intentional absence of fake completion for nonzero rendering in M5B-1.
+
+The historical Milestone 1 `jupiter_gpu_stub` remains part of the stub
+regression. The functional `jupiter_gpu_2d` module exists alongside that
+placeholder during incremental Milestone 5 integration.
+
+Passing this standalone register regression does not establish GPU SDRAM
+arbitration, tile rendering, framebuffer correctness, live video output,
+Quartus synthesis, timing closure, or physical-hardware operation.
