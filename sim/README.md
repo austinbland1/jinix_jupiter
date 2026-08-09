@@ -427,3 +427,47 @@ Milestone 5D-4 deliberately stops after tile `(0, 0)` row seven. The GPU
 remains busy with done clear and the graphics-memory interface idle. It does
 not yet advance tile X or tile Y, complete a nonzero render, or generate a
 complete multi-tile rendered image.
+
+### Milestone 5D-5 Complete Multi-Tile Rendering
+
+Run the current Milestone 5D renderer regressions with:
+
+    make -C sim m5d-test
+
+Milestone 5D-5 extends the complete per-tile renderer across tile X and tile
+Y in row-major order. Every configured tile receives a fresh tilemap-entry
+read, all eight RGB565 tile rows are fetched, and the resulting pixels are
+written to their final locations in the linear framebuffer.
+
+Tilemap entries are addressed row-major:
+
+    TILEMAP_BASE + ((tile_y * width_tiles + tile_x) * 4)
+
+Framebuffer addresses use the complete image position:
+
+    pixel_row = tile_y * 8 + tile_row
+
+    FRAMEBUFFER_BASE
+      + (pixel_row * width_tiles * 16)
+      + (tile_x * 16)
+      + (word * 4)
+
+`jupiter_gpu_full_map_tb.sv` renders a deterministic 2x2 tilemap using four
+different tile indices. It verifies tile-X advancement, tile-X wrap with
+tile-Y advancement, fresh tilemap fetches, all tile-data addresses, complete
+framebuffer placement, request stability while stalled, and the final
+framebuffer word at `FRAMEBUFFER_BASE + 0x1FC`.
+
+A 2x2 render consists of four tilemap reads, 128 tile-data reads, and 128
+framebuffer writes. The focused regression verifies exactly 132 read
+completions, 128 write completions, and 260 total GPU SDRAM transactions.
+
+After the final tile, the renderer returns to idle, clears busy, sets done,
+and issues no further graphics-memory transaction. The CPU-visible STATUS
+register reports done set and busy clear. Reset clears the completed-render
+status.
+
+This checkpoint proves complete deterministic multi-tile rendering at the
+GPU's 32-bit SDRAM-master interface. It does not by itself constitute FPGA
+hardware validation, timing closure, or proof of a rendered image on the
+live MiSTer video output.

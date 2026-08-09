@@ -45,7 +45,8 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	cpu-memory-test cpu-control-test cpu-program-test \
 	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test \
 	gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test \
-	gpu-full-tile-test cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test \
+	gpu-full-tile-test gpu-full-map-test \
+	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test \
 	sdram-arbiter-test shared-sdram-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
@@ -68,7 +69,7 @@ m5b-test: gpu-regs-test cpu-gpu-mmio-test
 
 m5c-test: sdram-arbiter-test shared-sdram-test
 
-m5d-test: gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test gpu-full-tile-test
+m5d-test: gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test gpu-full-tile-test gpu-full-map-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -142,6 +143,10 @@ gpu-full-tile-test:
 	iverilog -g2012 -s jupiter_gpu_full_tile_tb -o jupiter_gpu_full_tile.vvp $(GPU_2D_RTL) jupiter_gpu_full_tile_tb.sv
 	vvp -n jupiter_gpu_full_tile.vvp
 
+gpu-full-map-test:
+	iverilog -g2012 -s jupiter_gpu_full_map_tb -o jupiter_gpu_full_map.vvp $(GPU_2D_RTL) jupiter_gpu_full_map_tb.sv
+	vvp -n jupiter_gpu_full_map.vvp
+
 cpu-subsystem-test:
 	iverilog -g2012 -s jupiter_cpu_subsystem_tb -o jupiter_cpu_subsystem.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_subsystem_tb.sv
 	vvp -n jupiter_cpu_subsystem.vvp
@@ -188,7 +193,7 @@ clean:
 		jupiter_mmio_scratch.vvp jupiter_gpu_2d.vvp \
 		jupiter_gpu_tilemap.vvp jupiter_gpu_tiledata.vvp \
 		jupiter_gpu_framebuffer.vvp jupiter_gpu_full_tile.vvp \
-		jupiter_cpu_subsystem.vvp \
+		jupiter_gpu_full_map.vvp jupiter_cpu_subsystem.vvp \
 		jupiter_cpu_memory_map.vvp jupiter_cpu_gpu_mmio.vvp \
 		jupiter_sdram_arbiter.vvp jupiter_shared_sdram.vvp \
 		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \

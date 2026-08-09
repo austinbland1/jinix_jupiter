@@ -52,10 +52,10 @@ module jupiter_gpu_2d
 
     // Renderer sequencing state.
     //
-    // M5D-1 established tilemap fetch, M5D-2 tile-data reads, and M5D-3
-    // framebuffer writes for row zero. M5D-4 repeats that proven row path
-    // across all eight rows of tile (0,0), then deliberately stops before
-    // tile-coordinate traversal.
+    // M5D-1 through M5D-4 established the complete per-tile path from
+    // tilemap fetch through all eight RGB565 rows. M5D-5 extends that path
+    // across tile X and tile Y in row-major order and completes the render
+    // after the final configured tile.
     localparam [2:0] RENDER_IDLE               = 3'd0;
     localparam [2:0] RENDER_TILEMAP_WAIT       = 3'd1;
     localparam [2:0] RENDER_TILE_DATA_PENDING  = 3'd2;
@@ -97,20 +97,29 @@ module jupiter_gpu_2d
         {25'd0, tile_row, 4'b0000} +
         {28'd0, tile_word, 2'b00};
 
-    // The linear framebuffer row stride is width_tiles * 16 bytes because
-    // each tile contributes eight 16-bit pixels to one rendered row.
-    //
-    // M5D-4 still renders only tile_x == 0, so the horizontal tile offset
-    // remains zero at this checkpoint.
-    wire [10:0] framebuffer_row_tiles =
-        tile_row * active_map_size[7:0];
+    // Convert tile-space Y and the row within the current tile into the
+    // framebuffer's absolute pixel-row number.
+    wire [10:0] framebuffer_pixel_row =
+        {tile_y, 3'b000} +
+        {8'd0, tile_row};
+
+    // Each tile contributes sixteen framebuffer bytes to a scanline.
+    // Multiplying the pixel-row number by width_tiles and then by sixteen
+    // produces the complete-image scanline offset.
+    wire [18:0] framebuffer_row_tiles =
+        framebuffer_pixel_row * active_map_size[7:0];
 
     wire [31:0] framebuffer_row_offset =
-        {17'd0, framebuffer_row_tiles, 4'b0000};
+        {9'd0, framebuffer_row_tiles, 4'b0000};
+
+    // A tile is sixteen framebuffer bytes wide.
+    wire [31:0] framebuffer_tile_x_offset =
+        {20'd0, tile_x, 4'b0000};
 
     wire [31:0] framebuffer_request_addr =
         active_framebuffer_base +
         framebuffer_row_offset +
+        framebuffer_tile_x_offset +
         {28'd0, tile_word, 2'b00};
 
     reg [31:0] framebuffer_request_data;
@@ -278,6 +287,33 @@ module jupiter_gpu_2d
                     tile_row_word3 <= 32'h00000000;
 
                     renderer_state <= RENDER_TILE_DATA_WAIT;
+                end
+            end else if (renderer_state == RENDER_TILE_COMPLETE) begin
+                // Zero-sized maps complete immediately at START, so both
+                // active dimensions are nonzero while this state is reached.
+                if ((tile_x == (active_map_size[7:0] - 8'd1)) &&
+                    (tile_y == (active_map_size[15:8] - 8'd1))) begin
+                    busy <= 1'b0;
+                    done <= 1'b1;
+                    renderer_state <= RENDER_IDLE;
+                end else begin
+                    if (tile_x == (active_map_size[7:0] - 8'd1)) begin
+                        tile_x <= 8'd0;
+                        tile_y <= tile_y + 8'd1;
+                    end else begin
+                        tile_x <= tile_x + 8'd1;
+                    end
+
+                    tile_row <= 3'd0;
+                    tile_word <= 2'd0;
+                    current_tile_index <= 16'd0;
+
+                    tile_row_word0 <= 32'h00000000;
+                    tile_row_word1 <= 32'h00000000;
+                    tile_row_word2 <= 32'h00000000;
+                    tile_row_word3 <= 32'h00000000;
+
+                    renderer_state <= RENDER_TILEMAP_WAIT;
                 end
             end
 
