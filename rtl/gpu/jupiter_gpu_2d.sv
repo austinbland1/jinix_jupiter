@@ -40,8 +40,8 @@ module jupiter_gpu_2d
 
     // Configuration snapshot for one render operation.
     //
-    // M5B-1 establishes the register/control contract only. Later renderer
-    // logic will consume these snapshot registers.
+    // Renderer memory traffic uses only these active values. Live CPU-visible
+    // configuration may therefore change without altering an active render.
     reg [31:0] active_tilemap_base;
     reg [31:0] active_tiledata_base;
     reg [31:0] active_framebuffer_base;
@@ -50,15 +50,44 @@ module jupiter_gpu_2d
     reg busy;
     reg done;
 
+    // Initial renderer sequencing state.
+    //
+    // M5D-1 implements the first tilemap fetch only. Later M5D checkpoints
+    // continue from RENDER_TILE_DATA_PENDING with tile-data reads and
+    // framebuffer writes.
+    localparam [1:0] RENDER_IDLE              = 2'd0;
+    localparam [1:0] RENDER_TILEMAP_WAIT      = 2'd1;
+    localparam [1:0] RENDER_TILE_DATA_PENDING = 2'd2;
+
+    reg [1:0] renderer_state;
+    reg [7:0] tile_x;
+    reg [7:0] tile_y;
+    reg [15:0] current_tile_index;
+
+    wire [15:0] tilemap_linear_index =
+        (tile_y * active_map_size[7:0]) + tile_x;
+
+    wire [31:0] tilemap_request_addr =
+        active_tilemap_base +
+        {14'd0, tilemap_linear_index, 2'b00};
+
     // This first GPU MMIO target inserts no wait states.
     assign ready = valid;
 
-    // M5C-2 integrates the GPU's SDRAM-master interface without inventing
-    // renderer traffic. Until M5D supplies the rendering state machine, the
-    // GPU is a deterministic idle SDRAM master.
-    assign sdram_valid = 1'b0;
+    // M5D-1 issues the renderer's first real graphics-memory transaction:
+    // the 32-bit tilemap entry for the current tile. Tilemap traffic is
+    // read-only. While stalled, renderer state and the active configuration
+    // remain unchanged, so the complete request remains stable.
+    assign sdram_valid =
+        (renderer_state == RENDER_TILEMAP_WAIT);
+
     assign sdram_write = 1'b0;
-    assign sdram_addr  = 32'h00000000;
+
+    assign sdram_addr =
+        (renderer_state == RENDER_TILEMAP_WAIT) ?
+        tilemap_request_addr :
+        32'h00000000;
+
     assign sdram_wdata = 32'h00000000;
     assign sdram_wstrb = 4'b0000;
 
@@ -102,84 +131,103 @@ module jupiter_gpu_2d
             active_framebuffer_base <= 32'h00000000;
             active_map_size         <= 16'h0000;
 
+            renderer_state    <= RENDER_IDLE;
+            tile_x            <= 8'd0;
+            tile_y            <= 8'd0;
+            current_tile_index <= 16'd0;
+
             busy <= 1'b0;
             done <= 1'b0;
-        end else if (valid && write) begin
-            case (addr)
-                REG_CONTROL: begin
-                    // CONTROL.START is bit 0 in the low byte.
-                    if (wstrb[0] && wdata[0] && !busy) begin
-                        active_tilemap_base     <= tilemap_base_reg;
-                        active_tiledata_base    <= tiledata_base_reg;
-                        active_framebuffer_base <= framebuffer_base_reg;
-                        active_map_size         <= map_size_reg;
+        end else begin
+            // Renderer progress is independent of CPU MMIO writes. This is
+            // required because live configuration registers remain writable
+            // while a render is active.
+            if ((renderer_state == RENDER_TILEMAP_WAIT) &&
+                sdram_ready) begin
+                current_tile_index <= sdram_rdata[15:0];
+                renderer_state <= RENDER_TILE_DATA_PENDING;
+            end
 
-                        done <= 1'b0;
+            if (valid && write) begin
+                case (addr)
+                    REG_CONTROL: begin
+                        // CONTROL.START is bit 0 in the low byte.
+                        if (wstrb[0] && wdata[0] && !busy) begin
+                            active_tilemap_base     <= tilemap_base_reg;
+                            active_tiledata_base    <= tiledata_base_reg;
+                            active_framebuffer_base <= framebuffer_base_reg;
+                            active_map_size         <= map_size_reg;
 
-                        // The architecture defines a zero-width or
-                        // zero-height operation as immediately complete
-                        // without graphics-memory traffic.
-                        if ((map_size_reg[7:0] == 8'd0) ||
-                            (map_size_reg[15:8] == 8'd0)) begin
-                            busy <= 1'b0;
-                            done <= 1'b1;
-                        end else begin
-                            // M5B-1 deliberately does not fake renderer
-                            // completion. The future rendering state
-                            // machine will clear busy and assert done.
-                            busy <= 1'b1;
+                            tile_x <= 8'd0;
+                            tile_y <= 8'd0;
+                            current_tile_index <= 16'd0;
+
+                            done <= 1'b0;
+
+                            // The architecture defines a zero-width or
+                            // zero-height operation as immediately complete
+                            // without graphics-memory traffic.
+                            if ((map_size_reg[7:0] == 8'd0) ||
+                                (map_size_reg[15:8] == 8'd0)) begin
+                                busy <= 1'b0;
+                                done <= 1'b1;
+                                renderer_state <= RENDER_IDLE;
+                            end else begin
+                                busy <= 1'b1;
+                                renderer_state <= RENDER_TILEMAP_WAIT;
+                            end
                         end
                     end
-                end
 
-                REG_STATUS: begin
-                    // Read-only.
-                end
+                    REG_STATUS: begin
+                        // Read-only.
+                    end
 
-                REG_TILEMAP_BASE: begin
-                    if (wstrb[0])
-                        tilemap_base_reg[7:0] <= wdata[7:0];
-                    if (wstrb[1])
-                        tilemap_base_reg[15:8] <= wdata[15:8];
-                    if (wstrb[2])
-                        tilemap_base_reg[23:16] <= wdata[23:16];
-                    if (wstrb[3])
-                        tilemap_base_reg[31:24] <= wdata[31:24];
-                end
+                    REG_TILEMAP_BASE: begin
+                        if (wstrb[0])
+                            tilemap_base_reg[7:0] <= wdata[7:0];
+                        if (wstrb[1])
+                            tilemap_base_reg[15:8] <= wdata[15:8];
+                        if (wstrb[2])
+                            tilemap_base_reg[23:16] <= wdata[23:16];
+                        if (wstrb[3])
+                            tilemap_base_reg[31:24] <= wdata[31:24];
+                    end
 
-                REG_TILEDATA_BASE: begin
-                    if (wstrb[0])
-                        tiledata_base_reg[7:0] <= wdata[7:0];
-                    if (wstrb[1])
-                        tiledata_base_reg[15:8] <= wdata[15:8];
-                    if (wstrb[2])
-                        tiledata_base_reg[23:16] <= wdata[23:16];
-                    if (wstrb[3])
-                        tiledata_base_reg[31:24] <= wdata[31:24];
-                end
+                    REG_TILEDATA_BASE: begin
+                        if (wstrb[0])
+                            tiledata_base_reg[7:0] <= wdata[7:0];
+                        if (wstrb[1])
+                            tiledata_base_reg[15:8] <= wdata[15:8];
+                        if (wstrb[2])
+                            tiledata_base_reg[23:16] <= wdata[23:16];
+                        if (wstrb[3])
+                            tiledata_base_reg[31:24] <= wdata[31:24];
+                    end
 
-                REG_FRAMEBUFFER_BASE: begin
-                    if (wstrb[0])
-                        framebuffer_base_reg[7:0] <= wdata[7:0];
-                    if (wstrb[1])
-                        framebuffer_base_reg[15:8] <= wdata[15:8];
-                    if (wstrb[2])
-                        framebuffer_base_reg[23:16] <= wdata[23:16];
-                    if (wstrb[3])
-                        framebuffer_base_reg[31:24] <= wdata[31:24];
-                end
+                    REG_FRAMEBUFFER_BASE: begin
+                        if (wstrb[0])
+                            framebuffer_base_reg[7:0] <= wdata[7:0];
+                        if (wstrb[1])
+                            framebuffer_base_reg[15:8] <= wdata[15:8];
+                        if (wstrb[2])
+                            framebuffer_base_reg[23:16] <= wdata[23:16];
+                        if (wstrb[3])
+                            framebuffer_base_reg[31:24] <= wdata[31:24];
+                    end
 
-                REG_MAP_SIZE: begin
-                    if (wstrb[0])
-                        map_size_reg[7:0] <= wdata[7:0];
-                    if (wstrb[1])
-                        map_size_reg[15:8] <= wdata[15:8];
-                end
+                    REG_MAP_SIZE: begin
+                        if (wstrb[0])
+                            map_size_reg[7:0] <= wdata[7:0];
+                        if (wstrb[1])
+                            map_size_reg[15:8] <= wdata[15:8];
+                    end
 
-                default: begin
-                    // Reserved/unimplemented offsets ignore writes.
-                end
-            endcase
+                    default: begin
+                        // Reserved/unimplemented offsets ignore writes.
+                    end
+                endcase
+            end
         end
     end
 

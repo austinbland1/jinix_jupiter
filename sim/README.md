@@ -303,3 +303,31 @@ counts, and absence of behavioral-SDRAM protocol errors.
 Passing M5C-2 establishes the shared CPU/GPU external-memory path. It does not
 yet establish tile rendering, framebuffer generation, live GPU video output,
 Quartus synthesis, timing closure, or physical-hardware operation.
+
+### Milestone 5D-1 First Tilemap Fetch
+
+Run the current Milestone 5D renderer regression with:
+
+    make -C sim m5d-test
+
+Milestone 5D-1 begins functional renderer memory traffic. A nonzero
+`CONTROL.START` snapshots the GPU configuration, initializes tile coordinates
+to `(0, 0)`, and issues the first 32-bit tilemap-entry read through the GPU
+external-SDRAM master interface.
+
+The tilemap address follows the selected row-major formula:
+
+    TILEMAP_BASE + ((tile_y * width_tiles + tile_x) * 4)
+
+The request remains stable until `sdram_ready`. On completion, bits 15:0 of
+the returned tilemap word are captured as the unsigned tile index while bits
+31:16 are ignored.
+
+`jupiter_gpu_tilemap_tb.sv` verifies reset state, the exact first tilemap
+address, read-only request controls, multi-cycle stall stability, preservation
+of the active configuration snapshot while live registers are modified,
+ignored START requests while busy, tile-index capture, and reset cancellation.
+
+Milestone 5D-1 deliberately stops after the first tilemap fetch in a
+tile-data-pending renderer state. It does not yet issue tile-data reads,
+framebuffer writes, complete a nonzero render, or produce a rendered image.
