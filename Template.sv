@@ -27,7 +27,7 @@ assign ADC_BUS  = 'Z;
 assign USER_OUT = '1;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
-assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
+// Primary SDRAM is owned by Jupiter below.
 assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
 assign VGA_SL = 0;
@@ -94,18 +94,6 @@ wire  [10:0] ps2_key;
 // MiSTer-reported SDRAM configuration.
 wire [15:0] sdram_sz;
 
-// Jupiter SDRAM interface remains isolated from physical pins
-// until the external SDRAM clock is integrated.
-wire        jupiter_SDRAM_CKE;
-wire [12:0] jupiter_SDRAM_A;
-wire  [1:0] jupiter_SDRAM_BA;
-wire [15:0] jupiter_SDRAM_DQ;
-wire        jupiter_SDRAM_DQML;
-wire        jupiter_SDRAM_DQMH;
-wire        jupiter_SDRAM_nCS;
-wire        jupiter_SDRAM_nCAS;
-wire        jupiter_SDRAM_nRAS;
-wire        jupiter_SDRAM_nWE;
 
 hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
@@ -133,6 +121,32 @@ pll pll
 	.refclk(CLK_50M),
 	.rst(0),
 	.outclk_0(clk_sys)
+);
+
+// MiSTer-style external SDRAM clock generation.
+altddio_out
+#(
+	.extend_oe_disable("OFF"),
+	.intended_device_family("Cyclone V"),
+	.invert_output("OFF"),
+	.lpm_hint("UNUSED"),
+	.lpm_type("altddio_out"),
+	.oe_reg("UNREGISTERED"),
+	.power_up_high("OFF"),
+	.width(1)
+)
+jupiter_sdramclk_ddr
+(
+	.datain_h(1'b0),
+	.datain_l(1'b1),
+	.outclock(clk_sys),
+	.dataout(SDRAM_CLK),
+	.aclr(1'b0),
+	.aset(1'b0),
+	.oe(1'b1),
+	.outclocken(1'b1),
+	.sclr(1'b0),
+	.sset(1'b0)
 );
 
 wire reset = RESET | status[0] | buttons[1];
@@ -165,16 +179,16 @@ jupiter_system jupiter_system_inst
 
 	.sdram_sz(sdram_sz),
 
-	.SDRAM_CKE(jupiter_SDRAM_CKE),
-	.SDRAM_A(jupiter_SDRAM_A),
-	.SDRAM_BA(jupiter_SDRAM_BA),
-	.SDRAM_DQ(jupiter_SDRAM_DQ),
-	.SDRAM_DQML(jupiter_SDRAM_DQML),
-	.SDRAM_DQMH(jupiter_SDRAM_DQMH),
-	.SDRAM_nCS(jupiter_SDRAM_nCS),
-	.SDRAM_nCAS(jupiter_SDRAM_nCAS),
-	.SDRAM_nRAS(jupiter_SDRAM_nRAS),
-	.SDRAM_nWE(jupiter_SDRAM_nWE)
+	.SDRAM_CKE(SDRAM_CKE),
+	.SDRAM_A(SDRAM_A),
+	.SDRAM_BA(SDRAM_BA),
+	.SDRAM_DQ(SDRAM_DQ),
+	.SDRAM_DQML(SDRAM_DQML),
+	.SDRAM_DQMH(SDRAM_DQMH),
+	.SDRAM_nCS(SDRAM_nCS),
+	.SDRAM_nCAS(SDRAM_nCAS),
+	.SDRAM_nRAS(SDRAM_nRAS),
+	.SDRAM_nWE(SDRAM_nWE)
 );
 
 assign CLK_VIDEO = clk_sys;
