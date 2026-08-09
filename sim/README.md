@@ -237,3 +237,23 @@ placeholder during incremental Milestone 5 integration.
 Passing this standalone register regression does not establish GPU SDRAM
 arbitration, tile rendering, framebuffer correctness, live video output,
 Quartus synthesis, timing closure, or physical-hardware operation.
+
+### Milestone 5B-2 CPU-to-GPU MMIO Integration
+
+Run the Milestone 5B register and CPU-integration aggregate with:
+
+    make -C sim m5b-test
+
+`cpu-gpu-mmio-test` executes a deterministic Jupiter CPU program through the
+integrated interconnect. It verifies CPU construction of the `0x00001100`
+GPU MMIO base, GPU register write/readback, zero-dimension `CONTROL.START`
+completion, `STATUS.DONE`, reserved-register reads, target exclusivity, and
+preservation of the existing scratch-MMIO state.
+
+The interconnect regression also verifies both boundaries of the GPU control
+aperture, request forwarding, stall/completion propagation, the unmapped
+address immediately above the aperture, and non-overlapping target selection.
+
+Milestone 5B-2 integrates CPU-visible GPU control only. It does not yet add a
+GPU external-SDRAM master, CPU/GPU SDRAM arbitration, tile rendering, or live
+GPU video output.

@@ -50,6 +50,15 @@ module jupiter_cpu_subsystem
     wire [31:0] mmio_rdata;
     wire        mmio_ready;
 
+    // GPU control-MMIO target interface.
+    wire        gpu_valid;
+    wire        gpu_write;
+    wire [31:0] gpu_addr;
+    wire [31:0] gpu_wdata;
+    wire  [3:0] gpu_wstrb;
+    wire [31:0] gpu_rdata;
+    wire        gpu_ready;
+
     // External SDRAM target interface.
     wire        sdram_valid;
     wire        sdram_write;
@@ -113,6 +122,14 @@ module jupiter_cpu_subsystem
         .mmio_wstrb (mmio_wstrb),
         .mmio_rdata (mmio_rdata),
         .mmio_ready (mmio_ready),
+
+        .gpu_valid  (gpu_valid),
+        .gpu_write  (gpu_write),
+        .gpu_addr   (gpu_addr),
+        .gpu_wdata  (gpu_wdata),
+        .gpu_wstrb  (gpu_wstrb),
+        .gpu_rdata  (gpu_rdata),
+        .gpu_ready  (gpu_ready),
 
         .sdram_valid (sdram_valid),
         .sdram_write (sdram_write),
@@ -201,6 +218,21 @@ module jupiter_cpu_subsystem
 
         .rdata (mmio_rdata),
         .ready (mmio_ready)
+    );
+
+    jupiter_gpu_2d gpu
+    (
+        .clk   (clk),
+        .reset (reset),
+
+        .valid (gpu_valid),
+        .write (gpu_write),
+        .addr  (gpu_addr),
+        .wdata (gpu_wdata),
+        .wstrb (gpu_wstrb),
+
+        .rdata (gpu_rdata),
+        .ready (gpu_ready)
     );
 
 endmodule

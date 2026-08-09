@@ -1,6 +1,6 @@
 module jupiter_interconnect
 (
-    // Single Milestone 3 master transaction interface.
+    // CPU master transaction interface.
     input  wire        m_valid,
     input  wire        m_write,
     input  wire [31:0] m_addr,
@@ -30,6 +30,16 @@ module jupiter_interconnect
     input  wire [31:0] mmio_rdata,
     input  wire        mmio_ready,
 
+    // Milestone 5 GPU control-MMIO target.
+    output wire        gpu_valid,
+    output wire        gpu_write,
+    output wire [31:0] gpu_addr,
+    output wire [31:0] gpu_wdata,
+    output wire [3:0]  gpu_wstrb,
+
+    input  wire [31:0] gpu_rdata,
+    input  wire        gpu_ready,
+
     // Milestone 4 external SDRAM target.
     output wire        sdram_valid,
     output wire        sdram_write,
@@ -47,6 +57,9 @@ module jupiter_interconnect
     localparam [31:0] MMIO_START = 32'h00001000;
     localparam [31:0] MMIO_END   = 32'h00001003;
 
+    localparam [31:0] GPU_START  = 32'h00001100;
+    localparam [31:0] GPU_END    = 32'h000011FF;
+
     localparam [31:0] SDRAM_START = 32'h10000000;
     localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
 
@@ -63,6 +76,12 @@ module jupiter_interconnect
         aligned &&
         (m_addr >= MMIO_START) &&
         (m_addr <= MMIO_END);
+
+    wire gpu_selected =
+        m_valid &&
+        aligned &&
+        (m_addr >= GPU_START) &&
+        (m_addr <= GPU_END);
 
     wire sdram_selected =
         m_valid &&
@@ -83,6 +102,12 @@ module jupiter_interconnect
     assign mmio_wdata = m_wdata;
     assign mmio_wstrb = m_wstrb;
 
+    assign gpu_valid = gpu_selected;
+    assign gpu_write = m_write;
+    assign gpu_addr  = m_addr;
+    assign gpu_wdata = m_wdata;
+    assign gpu_wstrb = m_wstrb;
+
     assign sdram_valid = sdram_selected;
     assign sdram_write = m_write;
     assign sdram_addr  = m_addr;
@@ -98,6 +123,7 @@ module jupiter_interconnect
         !m_valid       ? 1'b0 :
         ram_selected   ? ram_ready :
         mmio_selected  ? mmio_ready :
+        gpu_selected   ? gpu_ready :
         sdram_selected ? sdram_ready :
                          1'b1;
 
@@ -105,6 +131,7 @@ module jupiter_interconnect
         !m_valid       ? 32'h00000000 :
         ram_selected   ? ram_rdata :
         mmio_selected  ? mmio_rdata :
+        gpu_selected   ? gpu_rdata :
         sdram_selected ? sdram_rdata :
                          32'h00000000;
 

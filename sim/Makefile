@@ -32,20 +32,21 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(INTERCONNECT_RTL) \
                     $(INTERNAL_RAM_RTL) \
                     $(MMIO_SCRATCH_RTL) \
+                    $(GPU_2D_RTL) \
                     $(SDRAM_FRONTEND_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
 
-.PHONY: test m1-test cpu-test m3-test m4-test \
+.PHONY: test m1-test cpu-test m3-test m4-test m5b-test \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
 	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test \
-	cpu-subsystem-test cpu-memory-map-test \
+	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test
+test: m1-test cpu-test m3-test m4-test m5b-test
 
 m1-test: core-test system-test stub-test
 
@@ -58,6 +59,8 @@ m3-test: interconnect-test internal-ram-test mmio-scratch-test \
 m4-test: interconnect-test cpu-subsystem-test system-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test
+
+m5b-test: gpu-regs-test cpu-gpu-mmio-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -123,6 +126,10 @@ cpu-memory-map-test:
 	iverilog -g2012 -s jupiter_cpu_memory_map_tb -o jupiter_cpu_memory_map.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_memory_map_tb.sv
 	vvp -n jupiter_cpu_memory_map.vvp
 
+cpu-gpu-mmio-test:
+	iverilog -g2012 -s jupiter_cpu_gpu_mmio_tb -o jupiter_cpu_gpu_mmio.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_gpu_mmio_tb.sv
+	vvp -n jupiter_cpu_gpu_mmio.vvp
+
 sdram-frontend-test:
 	iverilog -g2012 -s jupiter_sdram_frontend_tb -o jupiter_sdram_frontend.vvp $(SDRAM_FRONTEND_RTL) jupiter_sdram_frontend_tb.sv
 	vvp -n jupiter_sdram_frontend.vvp
@@ -148,6 +155,6 @@ clean:
 		jupiter_interconnect.vvp jupiter_internal_ram.vvp \
 		jupiter_mmio_scratch.vvp jupiter_gpu_2d.vvp \
 		jupiter_cpu_subsystem.vvp \
-		jupiter_cpu_memory_map.vvp \
+		jupiter_cpu_memory_map.vvp jupiter_cpu_gpu_mmio.vvp \
 		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \
 		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp

@@ -83,7 +83,7 @@ documented arbitration policy before that master shares the interconnect.
 | --- | --- | ---: | --- | --- |
 | `0x00000000` | `0x00000FFF` | 4 KiB | Internal/test RAM | Implemented in M3 |
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
-| `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Register RTL implemented in M5B-1; interconnect integration pending |
+| `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Integrated in M5B-2 |
 | `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.
@@ -159,10 +159,13 @@ The selected register layout is documented in
 This aperture does not overlap internal RAM, the Milestone 3 scratch
 register, or external SDRAM.
 
-At the M5A architecture-selection checkpoint the GPU MMIO target has not yet
-been added to the interconnect, so accesses to this aperture still receive
-the existing deterministic unmapped response. Later Milestone 5 integration
-will replace that temporary behavior with the selected GPU register target.
+Milestone 5B-2 integrates this aperture as a distinct CPU-visible
+interconnect target backed by `jupiter_gpu_2d`.
+
+Aligned CPU accesses within this aperture are routed only to the GPU target.
+Reserved aligned register offsets remain owned by the GPU aperture and use
+the deterministic reserved-register behavior defined by
+`docs/GPU_2D_ARCHITECTURE.md`.
 
 ## 8. Invalid and Unmapped Accesses
 
@@ -196,22 +199,17 @@ Unavailable external-memory addresses must not alias valid lower memory.
 
 ## 9. Target Selection
 
-The currently implemented Milestone 4 interconnect selects exactly one path
+The currently implemented interconnect selects exactly one path
 for a valid aligned request:
 
 1. internal RAM for `0x00000000` through `0x00000FFF`;
 2. MMIO scratch register for `0x00001000` through `0x00001003`;
-3. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
-4. otherwise the deterministic unmapped response.
+3. GPU control MMIO for `0x00001100` through `0x000011FF`;
+4. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
+5. otherwise the deterministic unmapped response.
 
-Milestone 5 has selected `0x00001100` through `0x000011FF` for GPU control
-MMIO. At the M5A architecture-selection checkpoint that target is documented
-but not yet implemented in the interconnect. Until its RTL integration,
-those addresses therefore continue to use the deterministic unmapped
-response.
-
-Once the GPU MMIO target is integrated, it becomes a distinct decoded target
-and must not overlap the existing RAM, scratch-MMIO, or SDRAM selections.
+The GPU MMIO target is a distinct decoded target and does not overlap the
+existing RAM, scratch-MMIO, or SDRAM selections.
 
 Within the maximum SDRAM aperture, the SDRAM path permits a physical
 transaction only when the reported SDRAM configuration is valid and the
