@@ -83,7 +83,7 @@ documented arbitration policy before that master shares the interconnect.
 | --- | --- | ---: | --- | --- |
 | `0x00000000` | `0x00000FFF` | 4 KiB | Internal/test RAM | Implemented in M3 |
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
-| `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Selected for M4; controller integration pending |
+| `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.
 
@@ -104,9 +104,10 @@ Addresses above installed capacity must not alias lower physical memory.
 The former Milestone 3 reservation from `0x18000000` through `0x1FFFFFFF`
 is unmapped unless a later milestone explicitly assigns it.
 
-Until the Milestone 4 SDRAM target is integrated into the interconnect,
-external-SDRAM addresses continue to receive the deterministic unmapped
-response from the current RTL.
+The Milestone 4 interconnect routes addresses within the implemented
+external-SDRAM aperture to the SDRAM path. Addresses above installed SDRAM
+capacity, or otherwise outside implemented regions, retain the deterministic
+unmapped response.
 
 ## 6. Internal/Test RAM
 
