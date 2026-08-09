@@ -3,7 +3,24 @@ module jupiter_cpu_subsystem
     input  wire clk,
     input  wire reset,
 
-    output wire halted
+    // MiSTer-reported installed external SDRAM size.
+    input  wire [15:0] sdram_sz,
+
+    // Physical external SDR SDRAM interface.
+    //
+    // SDRAM_CLK remains a later top-level integration concern.
+    output wire        SDRAM_CKE,
+    output wire [12:0] SDRAM_A,
+    output wire  [1:0] SDRAM_BA,
+    inout  wire [15:0] SDRAM_DQ,
+    output wire        SDRAM_DQML,
+    output wire        SDRAM_DQMH,
+    output wire        SDRAM_nCS,
+    output wire        SDRAM_nCAS,
+    output wire        SDRAM_nRAS,
+    output wire        SDRAM_nWE,
+
+    output wire        halted
 );
 
     // CPU master transaction interface.
@@ -32,6 +49,26 @@ module jupiter_cpu_subsystem
     wire [3:0]  mmio_wstrb;
     wire [31:0] mmio_rdata;
     wire        mmio_ready;
+
+    // External SDRAM target interface.
+    wire        sdram_valid;
+    wire        sdram_write;
+    wire [31:0] sdram_addr;
+    wire [31:0] sdram_wdata;
+    wire  [3:0] sdram_wstrb;
+    wire [31:0] sdram_rdata;
+    wire        sdram_ready;
+
+    // SDRAM frontend/controller halfword interface.
+    wire        half_valid;
+    wire        half_write;
+    wire [25:0] half_addr;
+    wire [15:0] half_wdata;
+    wire  [1:0] half_wstrb;
+    wire [15:0] half_rdata;
+    wire        half_ready;
+
+    wire        sdram_initialized;
 
     jupiter_cpu cpu
     (
@@ -75,7 +112,66 @@ module jupiter_cpu_subsystem
         .mmio_wdata (mmio_wdata),
         .mmio_wstrb (mmio_wstrb),
         .mmio_rdata (mmio_rdata),
-        .mmio_ready (mmio_ready)
+        .mmio_ready (mmio_ready),
+
+        .sdram_valid (sdram_valid),
+        .sdram_write (sdram_write),
+        .sdram_addr  (sdram_addr),
+        .sdram_wdata (sdram_wdata),
+        .sdram_wstrb (sdram_wstrb),
+        .sdram_rdata (sdram_rdata),
+        .sdram_ready (sdram_ready)
+    );
+
+    jupiter_sdram_frontend sdram_frontend
+    (
+        .clk        (clk),
+        .reset      (reset),
+
+        .m_valid    (sdram_valid),
+        .m_write    (sdram_write),
+        .m_addr     (sdram_addr),
+        .m_wdata    (sdram_wdata),
+        .m_wstrb    (sdram_wstrb),
+        .m_rdata    (sdram_rdata),
+        .m_ready    (sdram_ready),
+
+        .sdram_sz   (sdram_sz),
+
+        .half_valid (half_valid),
+        .half_write (half_write),
+        .half_addr  (half_addr),
+        .half_wdata (half_wdata),
+        .half_wstrb (half_wstrb),
+        .half_rdata (half_rdata),
+        .half_ready (half_ready)
+    );
+
+    jupiter_sdram_controller sdram_controller
+    (
+        .clk         (clk),
+        .reset       (reset),
+
+        .initialized (sdram_initialized),
+
+        .half_valid  (half_valid),
+        .half_write  (half_write),
+        .half_addr   (half_addr),
+        .half_wdata  (half_wdata),
+        .half_wstrb  (half_wstrb),
+        .half_rdata  (half_rdata),
+        .half_ready  (half_ready),
+
+        .SDRAM_CKE   (SDRAM_CKE),
+        .SDRAM_A     (SDRAM_A),
+        .SDRAM_BA    (SDRAM_BA),
+        .SDRAM_DQ    (SDRAM_DQ),
+        .SDRAM_DQML  (SDRAM_DQML),
+        .SDRAM_DQMH  (SDRAM_DQMH),
+        .SDRAM_nCS   (SDRAM_nCS),
+        .SDRAM_nCAS  (SDRAM_nCAS),
+        .SDRAM_nRAS  (SDRAM_nRAS),
+        .SDRAM_nWE   (SDRAM_nWE)
     );
 
     jupiter_internal_ram ram

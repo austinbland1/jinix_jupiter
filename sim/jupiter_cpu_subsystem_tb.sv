@@ -14,6 +14,7 @@ module jupiter_cpu_subsystem_tb;
     (
         .clk    (clk),
         .reset  (reset),
+        .sdram_sz (16'h0000),
         .halted (halted)
     );
 
