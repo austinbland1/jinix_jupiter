@@ -268,7 +268,9 @@ The selected architecture is documented in `docs/SDRAM_ARCHITECTURE.md`.
 
 ### PCM Audio System
 
-Milestone 7 selects the initial Jupiter PCM architecture.
+Milestone 7 implements and verifies the initial Jupiter PCM architecture
+through deterministic simulation. The selected contract and verification
+evidence are documented in `docs/AUDIO_ARCHITECTURE.md`.
 
 - Four hardware PCM voices are implemented as the bounded initial design;
   the provisional 32–64 voice project target remains unverified and is not a
@@ -382,9 +384,10 @@ are treated as current architecture; only their future extensions remain open.
 
 ### Audio Voice Architecture
 
-- Milestone 7 selects four signed 16-bit PCM voices, shared internal sample
-  RAM, independent left/right volume, deterministic saturated stereo mixing,
-  and a 48 kHz logical output rate. Future voice-count expansion,
+- Milestone 7 implements and verifies four signed 16-bit PCM voices,
+  shared internal sample RAM, independent left/right volume, deterministic
+  saturated stereo mixing, and a 48 kHz logical output rate. Future
+  voice-count expansion,
   external-memory streaming, looping, pitch control, envelopes, synthesis,
   effects, and other extensions remain open.
 

@@ -5,7 +5,7 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
 > **Current branch:** `milestone-7`  
-> **Current checkpoint:** Milestone 7 PCM architecture is selected and committed; CPU-visible audio MMIO and internal sample RAM are the next implementation checkpoint.
+> **Current checkpoint:** Milestone 7 PCM audio is implemented and verified in simulation; documentation closeout is ready for the `m7-verified` checkpoint.
 > **Verified predecessor:** `m6-verified` = `68cd6eed26e18afe2428702e3a71d921fc099693`
 ---
 
@@ -20,7 +20,7 @@ Jupiter is **not an emulator of an existing console**. It is being designed as i
 | 4 | External SDR SDRAM | Verified |
 | 5 | Hardware 2D graphics | Verified |
 | 6 | DMA and three-master SDRAM arbitration | **Verified — `m6-verified`** |
-| 7 | PCM audio | **In progress — architecture selected; implementation next** |
+| 7 | PCM audio | **Verified in simulation — `m7-verified`** |
 | 8+ | Later graphics, peripherals, firmware, devkit, etc. | Not yet implemented |
 
 Milestones are developed incrementally with deterministic simulation coverage. Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.
@@ -41,7 +41,11 @@ The verified design currently contains:
 - CPU-visible GPU control registers;
 - a functional DMA engine;
 - deterministic CPU/GPU/DMA shared-SDRAM arbitration;
-- automated Icarus Verilog simulation regressions covering the implemented CPU, memory, SDRAM, GPU, DMA, and contention paths.
+- four hardware signed 16-bit PCM voices with independent left/right volume;
+- deterministic 48 kHz stereo PCM mixing with signed 16-bit saturation;
+- internal 4096 × 16-bit PCM sample RAM and CPU-visible audio MMIO;
+- signed stereo audio integrated through the MiSTer-facing `AUDIO_L`, `AUDIO_R`, `AUDIO_S`, and `AUDIO_MIX` ports;
+- automated Icarus Verilog simulation regressions covering the implemented CPU, memory, SDRAM, GPU, DMA, audio, contention, and production audio-integration paths.
 
 The existing template/demo video path is still preserved as the live MiSTer-facing video producer. The Milestone 5 GPU is currently verified by rendering into an SDRAM framebuffer; presenting that framebuffer as the final live display is a later integration step.
 
@@ -162,9 +166,11 @@ The final Milestone 6 full regression passed before `m6-verified` was created.
 
 ## Milestone 7 — PCM Audio
 
-Milestone 7 has now begun on branch **`milestone-7`**.
+Milestone 7 is complete in simulation on branch **`milestone-7`**.
 
-At the current checkpoint, **no Milestone 7 functional RTL has been committed yet**. The initial PCM architecture is now selected and committed in `docs/AUDIO_ARCHITECTURE.md`. Implementation begins with CPU-visible audio MMIO and internal PCM sample RAM.
+The selected PCM architecture is now implemented end-to-end. CPU-visible audio MMIO, internal PCM sample RAM, four-voice playback sequencing, deterministic stereo mixing, saturation, shared sample-RAM arbitration, and production MiSTer-facing audio output integration are all covered by automated regressions.
+
+The detailed architectural contract and verification closeout are documented in `docs/AUDIO_ARCHITECTURE.md`.
 
 ### Verified MiSTer audio interface facts
 
@@ -179,7 +185,7 @@ The repository inspection established the actual core-facing MiSTer audio contra
 - `audio_out` already handles the downstream filtering/mixing path and produces I²S, S/PDIF, and sigma-delta DAC outputs;
 - the core therefore does **not** need to instantiate its own MiSTer `audio_out`, `i2s`, or `spdif` blocks.
 
-The existing template still ties `AUDIO_L`, `AUDIO_R`, `AUDIO_S`, and `AUDIO_MIX` to zero, so replacing that silent boundary with Jupiter PCM output is part of Milestone 7 integration.
+The production `Template.sv` now connects Jupiter's mixed samples through `jupiter_system` to `AUDIO_L` and `AUDIO_R`, asserts `AUDIO_S = 1` for signed samples, and selects native stereo with `AUDIO_MIX = 0`.
 
 The framework audio PLL converts a 50 MHz reference to **24.576 MHz**. MiSTer's `audio_out` is built around 48 kHz / 96 kHz audio handling internally.
 
@@ -212,9 +218,9 @@ without synthesis or hardware evidence.
 
 ---
 
-## Milestone 7 Acceptance Goal
+## Milestone 7 Verified Result
 
-Milestone 7 will be complete when the selected audio design has deterministic automated evidence that:
+Milestone 7 is verified by deterministic automated evidence that:
 
 - each implemented PCM voice behaves as documented;
 - multiple voices mix as documented;
@@ -251,7 +257,7 @@ Known inherited warnings in the template demo-video path are intentionally not t
 jinix_jupiter/
 ├── docs/                  Architecture, milestone, ISA, bus, GPU, DMA and audio docs
 ├── rtl/
-│   ├── audio/             Audio boundary; Milestone 7 work begins here
+│   ├── audio/             PCM sample RAM, voice playback and stereo mixer
 │   ├── cpu/               Jupiter CPU
 │   ├── dma/               DMA engine
 │   ├── gpu/               2D GPU
@@ -297,7 +303,8 @@ The important recent checkpoints are:
 
 - `m4-verified` — external SDRAM integration;
 - `m5-verified` — hardware 2D graphics and CPU/GPU contention;
-- `m6-verified` — DMA and CPU/GPU/DMA shared-SDRAM integration.
+- `m6-verified` — DMA and CPU/GPU/DMA shared-SDRAM integration;
+- `m7-verified` — PCM playback, stereo mixing, audio MMIO, and MiSTer-facing audio integration.
 
 The `milestone-7` branch starts directly from `m6-verified`.
 
@@ -305,22 +312,16 @@ The `milestone-7` branch starts directly from `m6-verified`.
 
 ## Current Next Step
 
-**M7B-1 — implement CPU-visible audio MMIO and internal PCM sample RAM.**
+**Milestone 8 — Controllers and Core Peripherals.**
 
-The first functional Milestone 7 checkpoint is deliberately limited to the
-control and storage foundation:
+Milestone 7 is closed at the selected deterministic PCM-audio scope. The next
+development phase should begin by inspecting and selecting the concrete
+controller/peripheral architecture required by Milestone 8 before adding new
+functional RTL.
 
-1. decode the selected `0x00001300–0x000013FF` audio MMIO aperture;
-2. implement the global audio registers;
-3. implement all four per-voice control/status register blocks;
-4. implement the shared 4096 × 16-bit internal PCM sample RAM;
-5. honor documented byte-write strobes;
-6. provide deterministic reset and reserved-register behavior;
-7. add focused automated simulation coverage.
-
-M7B-1 does **not** implement PCM playback or mixing yet. Voice sequencing,
-sample ticks, volume multiplication, stereo accumulation, saturation, and
-MiSTer audio output integration follow in later bounded M7 checkpoints.
+As with earlier milestones, functionality not explicitly selected for
+Milestone 8 remains outside the acceptance boundary until it is documented and
+implemented.
 
 ---
 

@@ -277,13 +277,13 @@ A roughly 32–64 voice range is a PROVISIONAL architectural target, not a manda
 - Deterministic simulation tests under `sim/` with reference audio/sample outputs suitable for automated checking.
 
 ### Acceptance Criteria
-- [ ] Each implemented voice behaves according to the documented design.
-- [ ] Multiple implemented voices mix deterministically as documented.
-- [ ] CPU-visible control registers behave deterministically per documentation.
-- [ ] Implemented looping/addressing/volume/pitch behavior, if selected during design, is verified against expected reference results.
-- [ ] Output samples match expected reference results in simulation.
-- [ ] Unrelated memory/state is not corrupted by audio operations.
-- [ ] Tests automatically report pass/fail.
+- [x] Each implemented voice behaves according to the documented design.
+- [x] Multiple implemented voices mix deterministically as documented.
+- [x] CPU-visible control registers behave deterministically per documentation.
+- [x] Implemented looping/addressing/volume/pitch behavior, if selected during design, is verified against expected reference results.
+- [x] Output samples match expected reference results in simulation.
+- [x] Unrelated memory/state is not corrupted by audio operations.
+- [x] Tests automatically report pass/fail.
 
 ### Non-Goals
 - No requirement for sine-wave generation, waveform synthesis, or ADSR envelopes unless intentionally selected during this milestone's design.

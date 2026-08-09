@@ -408,3 +408,48 @@ Milestone 7 does not establish:
 
 Those claims require later design decisions, synthesis reports, or actual
 hardware testing.
+
+## 14. Milestone 7 Verification Closeout
+
+Milestone 7 acceptance is verified in simulation for the selected initial PCM
+architecture described by this document.
+
+The deterministic verification plan in Section 12 is covered by the following
+automated regressions:
+
+- `audio-regs-test` verifies reset behavior, deterministic reserved accesses,
+  byte-write strobes, PCM sample-RAM reads/writes, per-voice control/status,
+  zero-length START behavior, restart/STOP semantics, sticky DONE handling,
+  BASE/LENGTH snapshots, effective-length truncation, and independent voice
+  state.
+- `audio-playback-test` verifies the exact-average 48 kHz phase-accumulator
+  sequence, committed output-update counting, position advancement, natural
+  completion, restart/STOP behavior, effective-length truncation, and
+  simultaneous progression of multiple active voices.
+- `audio-mixer-test` verifies exact signed single-voice output, arithmetic
+  right-shift behavior, independent live left/right volume, four-voice
+  reference mixing, positive and negative saturation, inactive-voice
+  exclusion, stable outputs between updates, shared sample-RAM ownership,
+  safe `SAMPLE_DATA` stalling, unrelated-RAM preservation, and exact
+  `SAMPLE_COUNT` commit behavior.
+- `interconnect-audio-test` verifies the production audio MMIO aperture and
+  deterministic coexistence with RAM, GPU, DMA, and SDRAM address regions.
+- `cpu-audio-mmio-test` verifies CPU-visible audio MMIO through the production
+  Jupiter CPU/interconnect/subsystem path without corrupting unrelated system
+  state.
+- `system-test` verifies signed stereo sample propagation through
+  `jupiter_audio`, `jupiter_cpu_subsystem`, and `jupiter_system`.
+- `audio-topology-test` verifies the production `Template.sv` connection to
+  `AUDIO_L`, `AUDIO_R`, `AUDIO_S`, and `AUDIO_MIX`, with no competing
+  top-level audio assignments.
+- `make -C sim test` provides regression coverage for previously verified CPU,
+  SDRAM, GPU, DMA, wrapper, interconnect, and audio behavior.
+
+The selected Milestone 7 acceptance criteria in `docs/MILESTONES.md` are
+therefore satisfied by automated simulation evidence.
+
+This closeout does not establish a final voice count, final audio-RAM capacity,
+external-memory streaming performance, FPGA DSP utilization, Quartus resource
+utilization, Fmax or timing closure, physical-hardware audio quality, or
+physical-hardware success. Those remain outside the Milestone 7 acceptance
+boundary and require later synthesis, resource, timing, or hardware evidence.
