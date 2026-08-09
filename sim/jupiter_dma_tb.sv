@@ -164,7 +164,7 @@ module jupiter_dma_tb;
             sdram_addr == 32'h00000000 &&
             sdram_wdata == 32'h00000000 &&
             sdram_wstrb == 4'b0000,
-            "M6B-1 SDRAM master resets deterministically idle"
+            "DMA SDRAM master resets deterministically idle"
         );
 
         @(negedge clk);
@@ -388,7 +388,9 @@ module jupiter_dma_tb;
             "zero-length transfer issues no SDRAM request"
         );
 
-        // Nonzero START enters bounded B1 busy state.
+        // ----------------------------------------------------
+        // M6D-1: deterministic one-word transfer.
+        // ----------------------------------------------------
         mmio_write(
             REG_SRC_BASE,
             32'h10030000,
@@ -403,7 +405,7 @@ module jupiter_dma_tb;
 
         mmio_write(
             REG_LENGTH_WORDS,
-            32'h00000003,
+            32'h00000001,
             4'b1111
         );
 
@@ -415,40 +417,47 @@ module jupiter_dma_tb;
 
         check(
             dut.busy && !dut.done,
-            "nonzero START asserts BUSY and clears DONE"
+            "single-word START asserts BUSY and clears DONE"
         );
 
         check(
             dut.active_src_base == 32'h10030000,
-            "nonzero START snapshots SRC_BASE"
+            "single-word START snapshots SRC_BASE"
         );
 
         check(
             dut.active_dst_base == 32'h10040000,
-            "nonzero START snapshots DST_BASE"
+            "single-word START snapshots DST_BASE"
         );
 
         check(
-            dut.active_length_words == 32'h00000003,
-            "nonzero START snapshots LENGTH_WORDS"
+            dut.active_length_words == 32'h00000001,
+            "single-word START snapshots LENGTH_WORDS"
+        );
+
+        check(
+            dut.current_src_addr == 32'h10030000 &&
+            dut.current_dst_addr == 32'h10040000 &&
+            dut.remaining_words == 32'h00000001,
+            "single-word START initializes active progress"
+        );
+
+        check(
+            sdram_valid &&
+            !sdram_write &&
+            sdram_addr == 32'h10030000 &&
+            sdram_wdata == 32'h00000000 &&
+            sdram_wstrb == 4'b0000,
+            "DMA begins with aligned 32-bit source read"
         );
 
         mmio_read(
             REG_STATUS,
             32'h00000001,
-            "STATUS reports BUSY for bounded B1 transfer state"
+            "STATUS reports BUSY during stalled source read"
         );
 
-        check(
-            !sdram_valid &&
-            !sdram_write &&
-            sdram_addr == 32'h00000000 &&
-            sdram_wdata == 32'h00000000 &&
-            sdram_wstrb == 4'b0000,
-            "M6B-1 does not fake DMA memory traffic"
-        );
-
-        // Live configuration stays writable while BUSY.
+        // Live configuration stays writable while the active read stalls.
         mmio_write(
             REG_SRC_BASE,
             32'h10050000,
@@ -488,11 +497,18 @@ module jupiter_dma_tb;
         check(
             dut.active_src_base == 32'h10030000 &&
             dut.active_dst_base == 32'h10040000 &&
-            dut.active_length_words == 32'h00000003,
+            dut.active_length_words == 32'h00000001,
             "live writes do not alter active DMA snapshot"
         );
 
-        // BUSY START is ignored.
+        check(
+            sdram_valid &&
+            !sdram_write &&
+            sdram_addr == 32'h10030000,
+            "live MMIO writes do not alter stalled source request"
+        );
+
+        // BUSY START must not replace the active transfer.
         mmio_write(
             REG_CONTROL,
             32'h00000001,
@@ -502,34 +518,179 @@ module jupiter_dma_tb;
         check(
             dut.active_src_base == 32'h10030000 &&
             dut.active_dst_base == 32'h10040000 &&
-            dut.active_length_words == 32'h00000003,
+            dut.active_length_words == 32'h00000001,
             "START while BUSY does not replace active snapshot"
         );
 
         check(
             dut.busy && !dut.done,
-            "START while BUSY leaves status unchanged"
+            "START while BUSY leaves transfer status unchanged"
         );
 
-        // Controller-side inputs cannot create fake B1 progress.
+        check(
+            sdram_valid &&
+            !sdram_write &&
+            sdram_addr == 32'h10030000,
+            "BUSY START does not disturb stalled source read"
+        );
+
+        // The source request must remain stable for arbitrary stalls.
+        sdram_rdata = 32'hDEADBEEF;
+
+        repeat (3) begin
+            @(posedge clk);
+            #1;
+
+            check(
+                sdram_valid &&
+                !sdram_write &&
+                sdram_addr == 32'h10030000 &&
+                sdram_wdata == 32'h00000000 &&
+                sdram_wstrb == 4'b0000,
+                "source read request remains stable while stalled"
+            );
+        end
+
+        check(
+            dut.read_data_reg == 32'h00000000,
+            "stalled source data is not captured before ready"
+        );
+
+        // Complete exactly one source read.
+        @(negedge clk);
         sdram_rdata = 32'hCAFEBABE;
         sdram_ready = 1'b1;
+        #1;
 
-        repeat (4) @(posedge clk);
+        check(
+            sdram_valid &&
+            !sdram_write &&
+            sdram_addr == 32'h10030000,
+            "source read presents stable request on completion"
+        );
+
+        @(posedge clk);
         #1;
 
         check(
             dut.busy && !dut.done,
-            "M6B-1 does not fake nonzero transfer completion"
+            "source completion keeps DMA BUSY for destination write"
+        );
+
+        check(
+            dut.read_data_reg == 32'hCAFEBABE,
+            "completed source read captures exact 32-bit data"
+        );
+
+        check(
+            sdram_valid &&
+            sdram_write &&
+            sdram_addr == 32'h10040000 &&
+            sdram_wdata == 32'hCAFEBABE &&
+            sdram_wstrb == 4'b1111,
+            "captured source word becomes destination write"
+        );
+
+        // Stall the destination write and change read-side input data.
+        // The captured write payload must remain unchanged.
+        @(negedge clk);
+        sdram_ready = 1'b0;
+        sdram_rdata = 32'h01234567;
+        #1;
+
+        repeat (3) begin
+            check(
+                sdram_valid &&
+                sdram_write &&
+                sdram_addr == 32'h10040000 &&
+                sdram_wdata == 32'hCAFEBABE &&
+                sdram_wstrb == 4'b1111,
+                "destination write request remains stable while stalled"
+            );
+
+            @(posedge clk);
+            #1;
+        end
+
+        check(
+            dut.read_data_reg == 32'hCAFEBABE,
+            "captured source word remains stable through write stall"
+        );
+
+        check(
+            dut.current_src_addr == 32'h10030000 &&
+            dut.current_dst_addr == 32'h10040000 &&
+            dut.remaining_words == 32'h00000001,
+            "addresses and remaining count do not advance before write ready"
+        );
+
+        // Complete the destination write.
+        @(negedge clk);
+        sdram_ready = 1'b1;
+        #1;
+
+        check(
+            sdram_valid &&
+            sdram_write &&
+            sdram_addr == 32'h10040000 &&
+            sdram_wdata == 32'hCAFEBABE &&
+            sdram_wstrb == 4'b1111,
+            "destination write fields remain stable on completion"
+        );
+
+        @(posedge clk);
+        #1;
+
+        check(
+            !dut.busy && dut.done,
+            "final destination write clears BUSY and asserts DONE"
         );
 
         check(
             !sdram_valid &&
-            sdram_addr == 32'h00000000,
-            "SDRAM inputs cannot create a B1 memory request"
+            !sdram_write &&
+            sdram_addr == 32'h00000000 &&
+            sdram_wdata == 32'h00000000 &&
+            sdram_wstrb == 4'b0000,
+            "completed DMA returns memory master to deterministic idle"
         );
 
-        // Reset clears all control and active state.
+        check(
+            dut.current_src_addr == 32'h10030004 &&
+            dut.current_dst_addr == 32'h10040004,
+            "completed word increments source and destination by four"
+        );
+
+        check(
+            dut.remaining_words == 32'h00000000,
+            "completed word decrements remaining count to zero"
+        );
+
+        check(
+            dut.active_src_base == 32'h10030000 &&
+            dut.active_dst_base == 32'h10040000 &&
+            dut.active_length_words == 32'h00000001,
+            "completion preserves original START snapshot"
+        );
+
+        @(negedge clk);
+        sdram_ready = 1'b0;
+
+        mmio_read(
+            REG_STATUS,
+            32'h00000002,
+            "STATUS reports sticky DONE after single-word transfer"
+        );
+
+        repeat (3) @(posedge clk);
+        #1;
+
+        check(
+            !dut.busy && dut.done,
+            "DONE remains sticky after functional transfer"
+        );
+
+        // Reset clears control, progress, and captured-data state.
         @(negedge clk);
         reset = 1'b1;
 
@@ -553,6 +714,14 @@ module jupiter_dma_tb;
             dut.active_dst_base == 32'h00000000 &&
             dut.active_length_words == 32'h00000000,
             "reset clears active DMA snapshots"
+        );
+
+        check(
+            dut.current_src_addr == 32'h00000000 &&
+            dut.current_dst_addr == 32'h00000000 &&
+            dut.remaining_words == 32'h00000000 &&
+            dut.read_data_reg == 32'h00000000,
+            "reset clears DMA transfer progress"
         );
 
         check(

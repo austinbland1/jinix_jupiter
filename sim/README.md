@@ -778,3 +778,39 @@ They are not throughput or timing guarantees.
 
 These regressions do not establish Quartus synthesis, timing closure,
 FPGA resource usage, measured DMA bandwidth, or physical-hardware operation.
+
+### Milestone 6D-1 Single-Word DMA Transfer Engine
+
+Run the focused standalone DMA regression with:
+
+    make -C sim dma-regs-test
+
+Milestone 6D-1 replaces the earlier control-only DMA data-master behavior
+with the first functional transfer state machine.
+
+For an accepted nonzero START the engine now:
+
+1. presents one 32-bit source read;
+2. holds that read request stable until `sdram_ready`;
+3. captures the completed 32-bit read data;
+4. presents one 32-bit destination write using `4'b1111` byte strobes;
+5. holds destination address and captured data stable until `sdram_ready`;
+6. increments the active source and destination progress addresses by four;
+7. decrements the remaining-word count; and
+8. asserts DONE and clears BUSY when the final destination write completes.
+
+Only one DMA memory transaction is outstanding at a time.
+
+The existing CPU-visible semantics remain part of the regression: zero-length
+immediate completion, START snapshots, byte-write strobes, live configuration
+writes during BUSY, ignored START while BUSY, sticky DONE, and deterministic
+reset behavior.
+
+The D1 verification claim is deliberately bounded to an exact single-word
+transfer with independently stalled read and write phases. The RTL state
+machine contains the continuation path needed for additional words, but
+deterministic multiword transfer behavior is not claimed until M6D-2 tests it.
+
+This is simulation evidence only. It does not establish measured DMA
+throughput, Quartus synthesis, timing closure, FPGA resource usage, or
+physical-hardware operation.
