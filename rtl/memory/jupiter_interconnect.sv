@@ -28,7 +28,17 @@ module jupiter_interconnect
     output wire [3:0]  mmio_wstrb,
 
     input  wire [31:0] mmio_rdata,
-    input  wire        mmio_ready
+    input  wire        mmio_ready,
+
+    // Milestone 4 external SDRAM target.
+    output wire        sdram_valid,
+    output wire        sdram_write,
+    output wire [31:0] sdram_addr,
+    output wire [31:0] sdram_wdata,
+    output wire [3:0]  sdram_wstrb,
+
+    input  wire [31:0] sdram_rdata,
+    input  wire        sdram_ready
 );
 
     localparam [31:0] RAM_START  = 32'h00000000;
@@ -36,6 +46,9 @@ module jupiter_interconnect
 
     localparam [31:0] MMIO_START = 32'h00001000;
     localparam [31:0] MMIO_END   = 32'h00001003;
+
+    localparam [31:0] SDRAM_START = 32'h10000000;
+    localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
 
     wire aligned = (m_addr[1:0] == 2'b00);
 
@@ -51,6 +64,12 @@ module jupiter_interconnect
         (m_addr >= MMIO_START) &&
         (m_addr <= MMIO_END);
 
+    wire sdram_selected =
+        m_valid &&
+        aligned &&
+        (m_addr >= SDRAM_START) &&
+        (m_addr <= SDRAM_END);
+
     // Requests retain their full system address at each target boundary.
     assign ram_valid = ram_selected;
     assign ram_write = m_write;
@@ -64,6 +83,12 @@ module jupiter_interconnect
     assign mmio_wdata = m_wdata;
     assign mmio_wstrb = m_wstrb;
 
+    assign sdram_valid = sdram_selected;
+    assign sdram_write = m_write;
+    assign sdram_addr  = m_addr;
+    assign sdram_wdata = m_wdata;
+    assign sdram_wstrb = m_wstrb;
+
     // A selected target controls completion and read data.
     //
     // Any valid request that selects no implemented aligned target receives
@@ -73,12 +98,14 @@ module jupiter_interconnect
         !m_valid       ? 1'b0 :
         ram_selected   ? ram_ready :
         mmio_selected  ? mmio_ready :
+        sdram_selected ? sdram_ready :
                          1'b1;
 
     assign m_rdata =
         !m_valid       ? 32'h00000000 :
         ram_selected   ? ram_rdata :
         mmio_selected  ? mmio_rdata :
+        sdram_selected ? sdram_rdata :
                          32'h00000000;
 
 endmodule
