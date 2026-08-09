@@ -401,6 +401,10 @@ module jupiter_sdram_path_tb;
 
     localparam [31:0] MAP_ADDR = 32'h14A12340;
 
+    localparam [31:0] SUSTAINED_BASE = 32'h10001000;
+    localparam integer SUSTAINED_WORDS = 16;
+    localparam integer SUSTAINED_READ_PASSES = 8;
+
     localparam [25:0] MAP_H0 =
         (MAP_ADDR - SDRAM_BASE) >> 1;
 
@@ -409,6 +413,11 @@ module jupiter_sdram_path_tb;
 
     integer guard;
     integer refresh_before_second;
+    integer sustained_i;
+    integer sustained_pass;
+    integer sustained_refresh_count;
+    integer sustained_done;
+    reg [31:0] sustained_expected;
 
     initial begin
         clk      = 1'b0;
@@ -666,6 +675,82 @@ module jupiter_sdram_path_tb;
         check(
             protocol_error == 1'b0,
             "complete integrated path reports no SDRAM protocol error"
+        );
+
+        // ----------------------------------------------------
+        // SUSTAINED / REPEATED ACCESS INTEGRITY
+        //
+        // Write 16 distinct aligned words, then repeatedly read
+        // the complete set while normal periodic refresh remains
+        // enabled. The address sequence exercises multiple column,
+        // bank, and row values without exhausting the sparse model.
+        // ----------------------------------------------------
+
+        sustained_refresh_count = 0;
+        sustained_done          = 0;
+
+        fork
+            begin
+                for (sustained_i = 0;
+                     sustained_i < SUSTAINED_WORDS;
+                     sustained_i = sustained_i + 1) begin
+
+                    sustained_expected =
+                        32'hA5000000 + sustained_i;
+
+                    jupiter_write(
+                        SUSTAINED_BASE + (sustained_i * 4),
+                        sustained_expected,
+                        4'b1111
+                    );
+                end
+
+                for (sustained_pass = 0;
+                     sustained_pass < SUSTAINED_READ_PASSES;
+                     sustained_pass = sustained_pass + 1) begin
+
+                    for (sustained_i = 0;
+                         sustained_i < SUSTAINED_WORDS;
+                         sustained_i = sustained_i + 1) begin
+
+                        sustained_expected =
+                            32'hA5000000 + sustained_i;
+
+                        jupiter_read(
+                            SUSTAINED_BASE + (sustained_i * 4),
+                            read_value
+                        );
+
+                        check(
+                            read_value == sustained_expected,
+                            "sustained SDRAM read preserves expected data"
+                        );
+                    end
+                end
+
+                sustained_done = 1;
+            end
+
+            begin
+                while (!sustained_done) begin
+                    @(posedge clk);
+                    #1;
+
+                    if (command == CMD_AUTO_REFRESH)
+                        sustained_refresh_count =
+                            sustained_refresh_count + 1;
+                end
+            end
+        join
+
+        check(
+            sustained_refresh_count >= 2,
+            "periodic refresh pair occurs during sustained SDRAM traffic"
+        );
+
+        check(
+            protocol_error == 1'b0,
+            "sustained SDRAM access causes no model protocol error"
         );
 
         // ----------------------------------------------------

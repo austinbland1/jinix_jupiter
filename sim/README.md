@@ -195,8 +195,9 @@ external-memory regression:
 - `sdram-controller-test` — initialization, command sequencing, and recurring
   refresh/maintenance
 - `sdram-path-test` — frontend/controller/behavioral-memory round trips,
-  physical address mapping, byte masks, and refresh deferral across a logical
-  32-bit transaction
+  physical address mapping, byte masks, refresh deferral across a logical
+  32-bit transaction, and sustained repeated-access integrity while periodic
+  refresh occurs
 - `cpu-sdram-test` — deterministic CPU store/load through the Milestone 3
   interconnect and complete external-SDRAM path
 
