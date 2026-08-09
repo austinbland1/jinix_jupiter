@@ -24,6 +24,7 @@ INTERCONNECT_RTL = ../rtl/memory/jupiter_interconnect.sv
 INTERNAL_RAM_RTL = ../rtl/memory/jupiter_internal_ram.sv
 MMIO_SCRATCH_RTL = ../rtl/peripherals/jupiter_mmio_scratch.sv
 GPU_2D_RTL = ../rtl/gpu/jupiter_gpu_2d.sv
+SDRAM_ARBITER_RTL = ../rtl/memory/jupiter_sdram_arbiter.sv
 SDRAM_FRONTEND_RTL = ../rtl/memory/jupiter_sdram_frontend.sv
 SDRAM_CONTROLLER_RTL = ../rtl/memory/jupiter_sdram_controller.sv
 SDRAM_MODEL = jupiter_sdram_model.sv
@@ -37,16 +38,16 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
 
-.PHONY: test m1-test cpu-test m3-test m4-test m5b-test \
+.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
 	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test \
-	sdram-frontend-test sdram-controller-test sdram-path-test \
+	sdram-arbiter-test sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test m5b-test
+test: m1-test cpu-test m3-test m4-test m5b-test m5c-test
 
 m1-test: core-test system-test stub-test
 
@@ -61,6 +62,8 @@ m4-test: interconnect-test cpu-subsystem-test system-test \
 	cpu-sdram-test
 
 m5b-test: gpu-regs-test cpu-gpu-mmio-test
+
+m5c-test: sdram-arbiter-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -130,6 +133,10 @@ cpu-gpu-mmio-test:
 	iverilog -g2012 -s jupiter_cpu_gpu_mmio_tb -o jupiter_cpu_gpu_mmio.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_gpu_mmio_tb.sv
 	vvp -n jupiter_cpu_gpu_mmio.vvp
 
+sdram-arbiter-test:
+	iverilog -g2012 -s jupiter_sdram_arbiter_tb -o jupiter_sdram_arbiter.vvp $(SDRAM_ARBITER_RTL) jupiter_sdram_arbiter_tb.sv
+	vvp -n jupiter_sdram_arbiter.vvp
+
 sdram-frontend-test:
 	iverilog -g2012 -s jupiter_sdram_frontend_tb -o jupiter_sdram_frontend.vvp $(SDRAM_FRONTEND_RTL) jupiter_sdram_frontend_tb.sv
 	vvp -n jupiter_sdram_frontend.vvp
@@ -156,5 +163,6 @@ clean:
 		jupiter_mmio_scratch.vvp jupiter_gpu_2d.vvp \
 		jupiter_cpu_subsystem.vvp \
 		jupiter_cpu_memory_map.vvp jupiter_cpu_gpu_mmio.vvp \
-		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \
+		jupiter_sdram_arbiter.vvp jupiter_sdram_frontend.vvp \
+		jupiter_sdram_controller.vvp \
 		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp

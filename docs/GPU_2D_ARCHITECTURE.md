@@ -257,6 +257,11 @@ Once a master is granted:
 When both masters request while the arbiter is free, the master that did not
 win the previous contested completed transaction receives the next grant.
 
+After reset, the first contested grant goes to the CPU. Thereafter only a
+completed transaction that began as a contested grant changes the contested
+round-robin history. Uncontested transactions do not change which master wins
+the next contested grant.
+
 When only one master requests, that master is granted without waiting for the
 other master.
 

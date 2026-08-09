@@ -257,3 +257,22 @@ address immediately above the aperture, and non-overlapping target selection.
 Milestone 5B-2 integrates CPU-visible GPU control only. It does not yet add a
 GPU external-SDRAM master, CPU/GPU SDRAM arbitration, tile rendering, or live
 GPU video output.
+
+### Milestone 5C-1 Standalone SDRAM Arbitration
+
+Run the standalone Milestone 5 SDRAM-arbitration regression with:
+
+    make -C sim m5c-test
+
+`jupiter_sdram_arbiter_tb.sv` verifies the selected two-master,
+non-preemptive round-robin policy at Jupiter 32-bit transaction boundaries.
+
+The regression verifies CPU priority for the first contested grant after
+reset, alternating completed contested grants, preservation of contested
+history across uncontested transactions, non-preemption while the shared
+target is stalled, master-specific completion and read-data routing, reset
+behavior, and deterministic idle outputs.
+
+Milestone 5C-1 proves the arbiter as a standalone RTL block only. The arbiter
+is not yet instantiated in `jupiter_cpu_subsystem`, is not yet part of
+`files.qip`, and the GPU does not yet issue external-SDRAM transactions.
