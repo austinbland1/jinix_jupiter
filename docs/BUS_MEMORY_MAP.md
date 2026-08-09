@@ -171,28 +171,26 @@ Milestone 4 also applies this deterministic response to an external-SDRAM
 access when:
 
 - external SDRAM is absent;
-- SDRAM size information is not valid;
-- the address lies beyond installed SDRAM capacity; or
-- the Milestone 4 SDRAM target has not yet been integrated.
+- SDRAM size information is not valid; or
+- the address lies beyond installed SDRAM capacity.
 
 Unavailable external-memory addresses must not alias valid lower memory.
 
 ## 9. Target Selection
 
-The currently implemented Milestone 3 interconnect selects exactly one target
+The currently implemented Milestone 4 interconnect selects exactly one path
 for a valid aligned request:
 
 1. internal RAM for `0x00000000` through `0x00000FFF`;
 2. MMIO scratch register for `0x00001000` through `0x00001003`;
-3. otherwise the deterministic unmapped response.
+3. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
+4. otherwise the deterministic unmapped response.
 
-Milestone 4 will extend this selection with one external-SDRAM target for
-addresses inside the installed and available portion of
-`0x10000000` through `0x17FFFFFF`.
-
-An address in the maximum SDRAM aperture but beyond installed capacity must
-select no physical SDRAM transaction and must receive the deterministic
-unavailable-memory response instead.
+Within the maximum SDRAM aperture, the SDRAM path permits a physical
+transaction only when the reported SDRAM configuration is valid and the
+address lies within installed capacity. An unavailable or out-of-range
+address receives the deterministic unavailable-memory response without a
+physical SDRAM transaction.
 
 Multiple targets must never acknowledge the same transaction.
 
