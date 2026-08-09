@@ -15,6 +15,12 @@ module jupiter_system
 
     output wire [7:0] video,
 
+    // MiSTer-facing Jupiter PCM audio boundary.
+    output wire signed [15:0] AUDIO_L,
+    output wire signed [15:0] AUDIO_R,
+    output wire               AUDIO_S,
+    output wire         [1:0] AUDIO_MIX,
+
     // MiSTer-reported external SDRAM configuration.
     input  wire [15:0] sdram_sz,
 
@@ -57,6 +63,9 @@ module jupiter_system
 
         .sdram_sz   (sdram_sz),
 
+        .audio_l    (AUDIO_L),
+        .audio_r    (AUDIO_R),
+
         .SDRAM_CKE  (SDRAM_CKE),
         .SDRAM_A    (SDRAM_A),
         .SDRAM_BA   (SDRAM_BA),
@@ -70,6 +79,12 @@ module jupiter_system
 
         .halted     (jupiter_cpu_halted)
     );
+
+    // Selected MiSTer audio interpretation:
+    // signed 16-bit stereo samples, with no framework mono mixing.
+    assign AUDIO_S   = 1'b1;
+    assign AUDIO_MIX = 2'b00;
+
 
     // Preserve the known-good MiSTer template demo-video path.
     mycore video_demo

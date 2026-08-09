@@ -38,10 +38,8 @@ assign HDMI_FREEZE = 0;
 assign HDMI_BLACKOUT = 0;
 assign HDMI_BOB_DEINT = 0;
 
-assign AUDIO_S = 0;
-assign AUDIO_L = 0;
-assign AUDIO_R = 0;
-assign AUDIO_MIX = 0;
+// Jupiter drives AUDIO_L/AUDIO_R/AUDIO_S/AUDIO_MIX
+// through jupiter_system below.
 
 assign LED_DISK = 0;
 assign LED_POWER = 0;
@@ -176,6 +174,11 @@ jupiter_system jupiter_system_inst
 	.VSync(VSync),
 
 	.video(video),
+
+	.AUDIO_L(AUDIO_L),
+	.AUDIO_R(AUDIO_R),
+	.AUDIO_S(AUDIO_S),
+	.AUDIO_MIX(AUDIO_MIX),
 
 	.sdram_sz(sdram_sz),
 

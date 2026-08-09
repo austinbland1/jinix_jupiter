@@ -17,6 +17,12 @@ wire       dut_VBlank;
 wire       dut_VSync;
 wire [7:0] dut_video;
 
+// Audio interface propagated by jupiter_system.
+wire signed [15:0] dut_AUDIO_L;
+wire signed [15:0] dut_AUDIO_R;
+wire               dut_AUDIO_S;
+wire         [1:0] dut_AUDIO_MIX;
+
 // SDRAM interface propagated by jupiter_system.
 wire        dut_SDRAM_CKE;
 wire [12:0] dut_SDRAM_A;
@@ -56,6 +62,11 @@ jupiter_system dut
     .VBlank     (dut_VBlank),
     .VSync      (dut_VSync),
     .video      (dut_video),
+
+    .AUDIO_L    (dut_AUDIO_L),
+    .AUDIO_R    (dut_AUDIO_R),
+    .AUDIO_S    (dut_AUDIO_S),
+    .AUDIO_MIX  (dut_AUDIO_MIX),
 
     // Existing wrapper regression runs without installed SDRAM.
     .sdram_sz   (16'h0000),
@@ -105,6 +116,16 @@ initial begin
     check(dut_SDRAM_CKE == 1'b1,
           "wrapper propagates SDRAM clock-enable from CPU subsystem");
 
+    check(dut_AUDIO_L == 16'sd0 &&
+          dut_AUDIO_R == 16'sd0,
+          "wrapper audio samples reset to signed silence");
+
+    check(dut_AUDIO_S == 1'b1,
+          "wrapper marks Jupiter audio as signed PCM");
+
+    check(dut_AUDIO_MIX == 2'b00,
+          "wrapper selects native stereo with no framework mono mix");
+
     // Release away from the active edge.
     @(negedge clk);
     reset = 1'b0;
@@ -124,6 +145,28 @@ initial begin
           "wrapper Jupiter tick counter wraps after 16 cycles");
     check(dut.jupiter.done_pulse == 1'b1,
           "wrapper Jupiter done pulse asserts at wrap");
+
+
+    // Verify the stable mixer samples propagate bit-exactly through:
+    //
+    // jupiter_audio -> jupiter_cpu_subsystem -> jupiter_system.
+    //
+    // The mixer datapath itself is already exhaustively verified by
+    // jupiter_audio_mixer_tb; this check isolates production wiring.
+    force dut.cpu_subsystem.audio.output_l_reg = -16'sd1234;
+    force dut.cpu_subsystem.audio.output_r_reg =  16'sd2345;
+
+    #1;
+
+    check($signed(dut_AUDIO_L) == -16'sd1234,
+          "production wrapper propagates signed left mixer sample");
+
+    check($signed(dut_AUDIO_R) == 16'sd2345,
+          "production wrapper propagates signed right mixer sample");
+
+    release dut.cpu_subsystem.audio.output_l_reg;
+    release dut.cpu_subsystem.audio.output_r_reg;
+
 
     // Run long enough to exercise horizontal and vertical timing.
     // scandouble=1 means mycore advances its pixel timing every clk.

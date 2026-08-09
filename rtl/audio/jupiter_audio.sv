@@ -11,7 +11,11 @@ module jupiter_audio
     input  wire  [3:0] wstrb,
 
     output reg  [31:0] rdata,
-    output wire        ready
+    output wire        ready,
+
+    // Stable signed stereo mixer samples for production integration.
+    output wire signed [15:0] audio_l,
+    output wire signed [15:0] audio_r
 );
 
     localparam [31:0] REG_SAMPLE_ADDR  = 32'h00001300;
@@ -72,6 +76,11 @@ module jupiter_audio
 
     reg signed [15:0] output_l_reg;
     reg signed [15:0] output_r_reg;
+
+    // M7C exports the already-validated stable mixer registers directly.
+    // No new clock domain or audio-output resampling is introduced here.
+    assign audio_l = output_l_reg;
+    assign audio_r = output_r_reg;
 
     reg [31:0] sample_count_reg;
 

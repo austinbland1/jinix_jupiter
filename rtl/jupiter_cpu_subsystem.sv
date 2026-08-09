@@ -20,6 +20,10 @@ module jupiter_cpu_subsystem
     output wire        SDRAM_nRAS,
     output wire        SDRAM_nWE,
 
+    // Stable Jupiter mixed PCM samples.
+    output wire signed [15:0] audio_l,
+    output wire signed [15:0] audio_r,
+
     output wire        halted
 );
 
@@ -377,7 +381,10 @@ wire        sdram_valid;
         .wstrb (audio_wstrb),
 
         .rdata (audio_rdata),
-        .ready (audio_ready)
+        .ready (audio_ready),
+
+        .audio_l (audio_l),
+        .audio_r (audio_r)
     );
 
 endmodule
