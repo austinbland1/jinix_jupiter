@@ -91,6 +91,22 @@ wire   [1:0] buttons;
 wire [127:0] status;
 wire  [10:0] ps2_key;
 
+// MiSTer-reported SDRAM configuration.
+wire [15:0] sdram_sz;
+
+// Jupiter SDRAM interface remains isolated from physical pins
+// until the external SDRAM clock is integrated.
+wire        jupiter_SDRAM_CKE;
+wire [12:0] jupiter_SDRAM_A;
+wire  [1:0] jupiter_SDRAM_BA;
+wire [15:0] jupiter_SDRAM_DQ;
+wire        jupiter_SDRAM_DQML;
+wire        jupiter_SDRAM_DQMH;
+wire        jupiter_SDRAM_nCS;
+wire        jupiter_SDRAM_nCAS;
+wire        jupiter_SDRAM_nRAS;
+wire        jupiter_SDRAM_nWE;
+
 hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
 	.clk_sys(clk_sys),
@@ -104,6 +120,8 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 	.status(status),
 	.status_menumask({status[5]}),
 	
+	.sdram_sz(sdram_sz),
+
 	.ps2_key(ps2_key)
 );
 
@@ -143,7 +161,20 @@ jupiter_system jupiter_system_inst
 	.VBlank(VBlank),
 	.VSync(VSync),
 
-	.video(video)
+	.video(video),
+
+	.sdram_sz(sdram_sz),
+
+	.SDRAM_CKE(jupiter_SDRAM_CKE),
+	.SDRAM_A(jupiter_SDRAM_A),
+	.SDRAM_BA(jupiter_SDRAM_BA),
+	.SDRAM_DQ(jupiter_SDRAM_DQ),
+	.SDRAM_DQML(jupiter_SDRAM_DQML),
+	.SDRAM_DQMH(jupiter_SDRAM_DQMH),
+	.SDRAM_nCS(jupiter_SDRAM_nCS),
+	.SDRAM_nCAS(jupiter_SDRAM_nCAS),
+	.SDRAM_nRAS(jupiter_SDRAM_nRAS),
+	.SDRAM_nWE(jupiter_SDRAM_nWE)
 );
 
 assign CLK_VIDEO = clk_sys;
