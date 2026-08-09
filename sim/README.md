@@ -583,3 +583,46 @@ This is simulation evidence for concurrent CPU/GPU operation through the
 production arbiter, frontend, SDRAM controller, and behavioral SDRAM model.
 It is not FPGA hardware validation, timing closure, measured hardware
 performance, or proof of live framebuffer scanout on MiSTer.
+
+### Milestone 6B-1 DMA Control Registers
+
+Run the focused standalone DMA-control regression with:
+
+    make -C sim dma-regs-test
+
+The Milestone 6 aggregate currently runs with:
+
+    make -C sim m6b-test
+
+Milestone 6B-1 introduces the standalone `jupiter_dma` control/register
+block defined by `docs/DMA_ARCHITECTURE.md`.
+
+The implemented CPU-visible register behavior includes:
+
+- write-only CONTROL.START;
+- read-only STATUS BUSY/DONE state;
+- read/write SRC_BASE;
+- read/write DST_BASE;
+- read/write LENGTH_WORDS;
+- byte-write-strobe handling for configuration registers;
+- deterministic zero reads and ignored writes for reserved offsets;
+- zero-length immediate completion;
+- configuration snapshot on accepted START;
+- sticky DONE while idle;
+- ignored START requests while BUSY;
+- live configuration writes that do not alter the active snapshot.
+
+The focused regression reports 87 deterministic checks.
+
+This is deliberately a bounded control-register checkpoint. A nonzero START
+sets BUSY but does not yet perform or complete a DMA memory transfer. The
+external-SDRAM master outputs therefore remain deterministically idle in
+M6B-1.
+
+`jupiter_dma` is not yet connected to the production CPU interconnect,
+external-SDRAM arbiter, or `files.qip` at this checkpoint. Those integrations
+belong to later Milestone 6 checkpoints.
+
+This regression is simulation evidence only. It does not establish Quartus
+synthesis, timing closure, measured DMA throughput, FPGA resource usage, or
+operation on physical hardware.

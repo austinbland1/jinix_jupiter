@@ -24,6 +24,7 @@ INTERCONNECT_RTL = ../rtl/memory/jupiter_interconnect.sv
 INTERNAL_RAM_RTL = ../rtl/memory/jupiter_internal_ram.sv
 MMIO_SCRATCH_RTL = ../rtl/peripherals/jupiter_mmio_scratch.sv
 GPU_2D_RTL = ../rtl/gpu/jupiter_gpu_2d.sv
+DMA_RTL = ../rtl/dma/jupiter_dma.sv
 SDRAM_ARBITER_RTL = ../rtl/memory/jupiter_sdram_arbiter.sv
 SDRAM_FRONTEND_RTL = ../rtl/memory/jupiter_sdram_frontend.sv
 SDRAM_CONTROLLER_RTL = ../rtl/memory/jupiter_sdram_controller.sv
@@ -39,11 +40,11 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
 
-.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test \
+.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
-	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test \
+	interconnect-test internal-ram-test mmio-scratch-test gpu-regs-test dma-regs-test \
 	gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test \
 	gpu-full-tile-test gpu-full-map-test \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test \
@@ -52,7 +53,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test
+test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test
 
 m1-test: core-test system-test stub-test
 
@@ -73,6 +74,8 @@ m5c-test: sdram-arbiter-test shared-sdram-test
 m5d-test: gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test gpu-full-tile-test gpu-full-map-test
 
 m5e-test: gpu-sdram-render-test gpu-sdram-contention-test
+
+m6b-test: dma-regs-test
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -194,6 +197,10 @@ cpu-sdram-test:
 	iverilog -g2012 -s jupiter_cpu_sdram_tb -o jupiter_cpu_sdram.vvp $(CPU_SUBSYSTEM_RTL) $(SDRAM_MODEL) jupiter_cpu_sdram_tb.sv
 	vvp -n jupiter_cpu_sdram.vvp
 
+dma-regs-test:
+	iverilog -g2012 -s jupiter_dma_tb -o jupiter_dma.vvp $(DMA_RTL) jupiter_dma_tb.sv
+	vvp -n jupiter_dma.vvp
+
 clean:
 	rm -f jupiter_core.vvp jupiter_system.vvp jupiter_stubs.vvp \
 		jupiter_cpu_state.vvp jupiter_cpu_fetch.vvp \
@@ -209,4 +216,5 @@ clean:
 		jupiter_sdram_arbiter.vvp jupiter_shared_sdram.vvp \
 		jupiter_gpu_sdram_render.vvp jupiter_gpu_sdram_contention.vvp \
 		jupiter_sdram_frontend.vvp jupiter_sdram_controller.vvp \
-		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp
+		jupiter_sdram_path.vvp jupiter_cpu_sdram.vvp \
+		jupiter_dma.vvp
