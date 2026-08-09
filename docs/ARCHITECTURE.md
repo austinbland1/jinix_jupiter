@@ -213,7 +213,7 @@ assigned without overlapping the established regions.
 
 ### DMA Engine
 
-**PROPOSED.** A dedicated DMA controller block that supports high-bandwidth movement for graphics, audio, and general memory operations is a design target. Exact channels, transfer modes, arbitration, scheduling, and supported transfer operations remain TBD.
+**MILESTONE 6 SELECTED.** Jupiter's initial DMA is one CPU-controlled channel for aligned 32-bit external-SDRAM to external-SDRAM copies. Source and destination auto-increment by four bytes, length is expressed in 32-bit words, and completion is exposed through CPU-readable BUSY/DONE state. DMA becomes the third external-SDRAM master alongside CPU and GPU. The selected architecture is documented in `docs/DMA_ARCHITECTURE.md`.
 
 ### External SDRAM
 

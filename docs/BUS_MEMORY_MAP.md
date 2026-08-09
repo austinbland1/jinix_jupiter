@@ -9,8 +9,9 @@ Milestone 4 extends that architecture by selecting the CPU-visible external
 SDRAM aperture and unavailable-memory behavior. The physical SDRAM controller
 and its integration are implemented incrementally during Milestone 4.
 
-DMA, graphics, audio, and later peripheral mappings remain outside the scope
-of this document.
+Milestone 5 added CPU-visible GPU control MMIO. Milestone 6 selects the DMA
+control aperture documented below. Audio and later peripheral mappings remain
+unassigned.
 
 ## 2. Selected Internal Transaction Protocol
 
@@ -64,18 +65,24 @@ Writes take effect only for a completed write transaction.
 
 ## 4. Arbitration
 
-The CPU is the only implemented Jupiter transaction master through
-Milestone 4.
+Milestone 5 established CPU and GPU as two external-SDRAM transaction
+masters using deterministic non-preemptive round-robin arbitration.
 
-Therefore no multi-master arbitration or grant logic is required yet. The CPU
-owns the transaction path whenever it presents a request.
+Milestone 6 selects DMA as a third external-SDRAM transaction master. The
+arbiter will be extended to deterministic non-preemptive three-way round-robin
+service in cyclic CPU -> GPU -> DMA order, skipping inactive requesters. A
+granted logical transaction remains selected until completion.
 
-SDRAM refresh is controller maintenance rather than a separate Jupiter bus
-master. The SDRAM controller may stall the CPU while required maintenance is
+Uncontested transactions do not change contested round-robin history. After
+reset, CPU is the first preferred requester when CPU participates in the first
+contested arbitration.
+
+SDRAM refresh remains controller maintenance rather than a separate Jupiter
+bus master and may stall the shared requester while required maintenance is
 performed.
 
-Adding DMA or another master in a later milestone will require an explicit
-documented arbitration policy before that master shares the interconnect.
+The complete Milestone 6 DMA arbitration contract is documented in
+`docs/DMA_ARCHITECTURE.md`.
 
 ## 5. Memory Map
 
@@ -84,6 +91,7 @@ documented arbitration policy before that master shares the interconnect.
 | `0x00000000` | `0x00000FFF` | 4 KiB | Internal/test RAM | Implemented in M3 |
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
 | `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Integrated in M5B-2 |
+| `0x00001200` | `0x000012FF` | 256 B | DMA control MMIO | Selected in M6A; integration pending |
 | `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.
@@ -166,6 +174,23 @@ Aligned CPU accesses within this aperture are routed only to the GPU target.
 Reserved aligned register offsets remain owned by the GPU aperture and use
 the deterministic reserved-register behavior defined by
 `docs/GPU_2D_ARCHITECTURE.md`.
+
+### 7.2 Milestone 6 DMA Control Aperture
+
+Milestone 6 selects the following CPU-visible DMA control aperture:
+
+    0x00001200 - 0x000012FF
+
+The selected register layout and transfer semantics are documented in
+`docs/DMA_ARCHITECTURE.md`.
+
+This aperture does not overlap internal RAM, scratch MMIO, GPU control MMIO,
+or external SDRAM.
+
+At the M6A architecture checkpoint this range is selected but not yet
+integrated into the production interconnect. Until M6 implementation reaches
+that integration checkpoint, accesses to the range retain the existing
+deterministic unmapped response.
 
 ## 8. Invalid and Unmapped Accesses
 
