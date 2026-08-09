@@ -471,3 +471,56 @@ This checkpoint proves complete deterministic multi-tile rendering at the
 GPU's 32-bit SDRAM-master interface. It does not by itself constitute FPGA
 hardware validation, timing closure, or proof of a rendered image on the
 live MiSTer video output.
+
+### Milestone 5E-1 Integrated SDRAM Render
+
+Run the integrated renderer regression with:
+
+    make -C sim gpu-sdram-render-test
+
+or the current Milestone 5E aggregate with:
+
+    make -C sim m5e-test
+
+Milestone 5E-1 validates a complete deterministic 2x2 tile render through
+the production CPU subsystem and external-SDRAM path. A real Jupiter CPU
+program writes the GPU tilemap, tile-data, framebuffer, and map-size
+registers through the normal GPU MMIO aperture and then writes CONTROL.START.
+
+The CPU then halts while the production GPU renders through:
+
+    GPU 32-bit master
+      -> jupiter_sdram_arbiter
+      -> jupiter_sdram_frontend
+      -> jupiter_sdram_controller
+      -> behavioral SDRAM model
+
+The test preloads four row-major tilemap entries and four complete 8x8
+RGB565 tiles into the behavioral SDRAM model. It also seeds all 128 words of
+the 16x16 framebuffer with a sentinel value before rendering.
+
+The completed render verifies every one of those 128 framebuffer words
+against the deterministic expected image. It also verifies that all tilemap
+and tile-data source words remain unchanged and that unrelated memory guards
+on both sides of the test regions survive the render.
+
+The GPU completes exactly:
+
+    132 logical reads
+    128 logical writes
+    260 logical 32-bit transactions total
+
+Through the existing 32-bit-to-16-bit frontend and SDRAM controller, those
+transactions produce exactly:
+
+    264 physical READ commands
+    256 physical WRITE commands
+    520 ACTIVE commands
+
+The behavioral SDRAM model reports no protocol error, the GPU reaches done
+with busy clear, and the shared SDRAM path returns idle after completion.
+
+This is simulation evidence for the production renderer, arbiter, frontend,
+controller, and physical-command interface operating together. It is not
+FPGA hardware validation, timing closure, measured performance, or proof
+that the framebuffer is currently displayed by the live MiSTer video path.
