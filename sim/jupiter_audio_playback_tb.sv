@@ -35,6 +35,9 @@ module jupiter_audio_playback_tb;
 
     integer cycles_to_tick;
 
+    integer absolute_cycles = 0;
+    integer last_tick_cycle = 0;
+
     reg [31:0] read_value;
 
 
@@ -55,6 +58,28 @@ module jupiter_audio_playback_tb;
 
 
     always #5 clk = ~clk;
+
+
+    // Absolute post-reset cycle counter used to measure sample-tick
+    // spacing even though the helper waits several additional cycles
+    // for the serialized mixer commit.
+    always @(posedge clk) begin
+
+        if (reset) begin
+
+            absolute_cycles =
+                0;
+
+            last_tick_cycle =
+                0;
+
+        end else begin
+
+            absolute_cycles =
+                absolute_cycles + 1;
+
+        end
+    end
 
 
     task automatic check;
@@ -188,12 +213,30 @@ module jupiter_audio_playback_tb;
                 @(posedge clk);
                 #1;
 
-                cycles_waited =
-                    cycles_waited + 1;
+                if (dut.sample_tick) begin
 
-                if (dut.sample_tick)
+                    cycles_waited =
+                        absolute_cycles -
+                        last_tick_cycle;
+
+                    last_tick_cycle =
+                        absolute_cycles;
+
+
+                    // M7B-3 serializes four sample-RAM voice reads.
+                    // Wait until OUTPUT/POSITION/SAMPLE_COUNT commit
+                    // before returning to the existing checks.
+                    while (!dut.mix_commit) begin
+
+                        @(posedge clk);
+                        #1;
+
+                    end
+
+
                     disable wait_tick_block;
 
+                end
             end
         end
     endtask

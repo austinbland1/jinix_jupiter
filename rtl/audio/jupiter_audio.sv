@@ -31,20 +31,33 @@ module jupiter_audio
     localparam [4:0] VOICE_VOLUME_R = 5'h14;
     localparam [4:0] VOICE_POSITION = 5'h18;
 
+
+    // ------------------------------------------------------------
+    // Internal PCM sample RAM
+    // ------------------------------------------------------------
+
     // 4096 signed 16-bit PCM samples.
     //
-    // Sample RAM is intentionally not reset. Reset requirements apply
-    // to control/state, not clearing all 8 KiB of PCM storage.
+    // Sample RAM is intentionally not reset.
     reg [11:0] sample_addr_reg;
     reg signed [15:0] sample_ram [0:4095];
 
-    // Live CPU-visible voice configuration.
+
+    // ------------------------------------------------------------
+    // CPU-visible per-voice configuration
+    // ------------------------------------------------------------
+
     reg [11:0] voice_base_reg [0:3];
     reg [12:0] voice_length_reg [0:3];
-    reg  [7:0] voice_volume_l_reg [0:3];
-    reg  [7:0] voice_volume_r_reg [0:3];
 
-    // Playback snapshots/state.
+    reg [7:0] voice_volume_l_reg [0:3];
+    reg [7:0] voice_volume_r_reg [0:3];
+
+
+    // ------------------------------------------------------------
+    // Active playback snapshots/state
+    // ------------------------------------------------------------
+
     reg [11:0] active_base [0:3];
     reg [12:0] active_length [0:3];
     reg [12:0] voice_position [0:3];
@@ -52,26 +65,29 @@ module jupiter_audio
     reg voice_active [0:3];
     reg voice_done [0:3];
 
-    // No sample-tick/mixer producer exists yet in M7B-1.
+
+    // ------------------------------------------------------------
+    // Mixed output state
+    // ------------------------------------------------------------
+
     reg signed [15:0] output_l_reg;
     reg signed [15:0] output_r_reg;
 
     reg [31:0] sample_count_reg;
 
-    // Exact-average 48 kHz sample-update generator in the existing
-    // 20 MHz clk domain.
-    //
-    // 20,000,000 / 48,000 produces the repeating tick spacing:
-    //
-    //     417, 417, 416 clk cycles
-    //
-    // sample_tick is a one-cycle observation pulse corresponding to the
-    // state update performed on that same rising clock edge.
-    localparam [24:0] SAMPLE_PHASE_INCREMENT = 25'd48000;
-    localparam [24:0] SAMPLE_PHASE_MODULUS   = 25'd20000000;
 
-    reg  [24:0] sample_phase_reg;
-    reg         sample_tick;
+    // ------------------------------------------------------------
+    // Exact-average 48 kHz sample tick
+    // ------------------------------------------------------------
+
+    localparam [24:0] SAMPLE_PHASE_INCREMENT =
+        25'd48000;
+
+    localparam [24:0] SAMPLE_PHASE_MODULUS =
+        25'd20000000;
+
+    reg [24:0] sample_phase_reg;
+    reg        sample_tick;
 
     wire [24:0] sample_phase_sum =
         sample_phase_reg +
@@ -80,6 +96,11 @@ module jupiter_audio
     wire sample_tick_fire =
         sample_phase_sum >=
         SAMPLE_PHASE_MODULUS;
+
+
+    // ------------------------------------------------------------
+    // MMIO decode helpers
+    // ------------------------------------------------------------
 
     wire voice_selected =
         (addr >= VOICE_BASE_ADDR) &&
@@ -98,6 +119,12 @@ module jupiter_audio
         (voice_offset == VOICE_CONTROL) &&
         wstrb[0];
 
+    // START or STOP changes playback sequencing state.
+    // CLEAR_DONE by itself does not pause playback.
+    wire playback_command_write =
+        control_command_write &&
+        (wdata[1:0] != 2'b00);
+
     wire [12:0] selected_remaining =
         13'd4096 -
         {1'b0, voice_base_reg[voice_index]};
@@ -110,13 +137,159 @@ module jupiter_audio
         ? selected_remaining
         : voice_length_reg[voice_index];
 
-    integer i;
 
-    // M7B-2 sequences voices but does not yet consume the sample-RAM
-    // data port for mixing. CPU SAMPLE_DATA accesses therefore remain
-    // zero-wait in this checkpoint. Shared-port ownership/stalling is
-    // introduced when playback begins reading PCM data.
-    assign ready = valid;
+    // ------------------------------------------------------------
+    // Serialized four-voice mixer state
+    //
+    // One output update begins on each 48 kHz sample tick.
+    // Voice state/address/volume is captured at that boundary.
+    //
+    // The shared sample-RAM read port is then used once for each
+    // voice over four clk cycles. Inactive voices contribute zero.
+    //
+    // OUTPUT_L / OUTPUT_R / SAMPLE_COUNT / POSITION are committed
+    // together after voice three has been processed.
+    // ------------------------------------------------------------
+
+    reg        mix_busy;
+    reg        mix_commit;
+    reg  [1:0] mix_voice_index;
+
+    reg signed [26:0] mix_left_accum;
+    reg signed [26:0] mix_right_accum;
+
+    reg        mix_voice_enabled [0:3];
+    reg [11:0] mix_sample_addr [0:3];
+
+    reg [7:0] mix_volume_l [0:3];
+    reg [7:0] mix_volume_r [0:3];
+
+    // A START/STOP arriving after the sample-tick snapshot prevents
+    // the mixer commit from overwriting that newer command state.
+    reg mix_control_seen [0:3];
+
+
+    // ------------------------------------------------------------
+    // Single shared sample-RAM read path
+    // ------------------------------------------------------------
+
+    wire [11:0] sample_ram_read_addr =
+        mix_busy
+        ? mix_sample_addr[mix_voice_index]
+        : sample_addr_reg;
+
+    wire signed [15:0] sample_ram_read_data =
+        sample_ram[sample_ram_read_addr];
+
+
+    // ------------------------------------------------------------
+    // Current serialized voice arithmetic
+    //
+    // The unsigned 8-bit volume is extended with a leading zero and
+    // interpreted as a positive signed 9-bit value. This keeps the
+    // signed source-sample multiplication unambiguous.
+    // ------------------------------------------------------------
+
+    wire signed [15:0] mix_current_sample =
+        sample_ram_read_data;
+
+    wire signed [8:0] mix_current_volume_l =
+        {
+            1'b0,
+            mix_volume_l[mix_voice_index]
+        };
+
+    wire signed [8:0] mix_current_volume_r =
+        {
+            1'b0,
+            mix_volume_r[mix_voice_index]
+        };
+
+    wire signed [24:0] mix_current_product_l =
+        mix_current_sample *
+        mix_current_volume_l;
+
+    wire signed [24:0] mix_current_product_r =
+        mix_current_sample *
+        mix_current_volume_r;
+
+    wire signed [26:0] mix_current_contribution_l =
+        mix_voice_enabled[mix_voice_index]
+        ? {
+            {2{mix_current_product_l[24]}},
+            mix_current_product_l
+        }
+        : 27'sd0;
+
+    wire signed [26:0] mix_current_contribution_r =
+        mix_voice_enabled[mix_voice_index]
+        ? {
+            {2{mix_current_product_r[24]}},
+            mix_current_product_r
+        }
+        : 27'sd0;
+
+    wire signed [26:0] mix_left_sum_next =
+        mix_left_accum +
+        mix_current_contribution_l;
+
+    wire signed [26:0] mix_right_sum_next =
+        mix_right_accum +
+        mix_current_contribution_r;
+
+    // The architecture shifts AFTER summing all voice products.
+    wire signed [26:0] mix_left_scaled_next =
+        mix_left_sum_next >>> 8;
+
+    wire signed [26:0] mix_right_scaled_next =
+        mix_right_sum_next >>> 8;
+
+
+    // ------------------------------------------------------------
+    // Signed-16 saturation
+    // ------------------------------------------------------------
+
+    function automatic [15:0] saturate_s16;
+        input signed [26:0] value;
+
+        begin
+
+            if (value > 27'sd32767)
+                saturate_s16 =
+                    16'h7FFF;
+
+            else if (value < -27'sd32768)
+                saturate_s16 =
+                    16'h8000;
+
+            else
+                saturate_s16 =
+                    value[15:0];
+
+        end
+    endfunction
+
+
+    // ------------------------------------------------------------
+    // Shared-RAM ownership / MMIO completion
+    //
+    // Only SAMPLE_DATA requires the RAM data port. All other audio
+    // registers remain accessible while the four-cycle mixer runs.
+    // ------------------------------------------------------------
+
+    wire sample_data_access =
+        valid &&
+        (addr == REG_SAMPLE_DATA);
+
+    assign ready =
+        valid &&
+        !(
+            sample_data_access &&
+            mix_busy
+        );
+
+
+    integer i;
 
 
     // ------------------------------------------------------------
@@ -125,7 +298,8 @@ module jupiter_audio
 
     always @(*) begin
 
-        rdata = 32'h00000000;
+        rdata =
+            32'h00000000;
 
         if (valid && !write) begin
 
@@ -138,11 +312,21 @@ module jupiter_audio
                     };
 
 
-                REG_SAMPLE_DATA:
-                    rdata = {
-                        16'd0,
-                        sample_ram[sample_addr_reg]
-                    };
+                REG_SAMPLE_DATA: begin
+
+                    // rdata is meaningful only when ready is asserted.
+                    // Suppress the CPU-side RAM value while playback owns
+                    // the shared read path.
+                    if (!mix_busy)
+                        rdata = {
+                            16'd0,
+                            sample_ram_read_data
+                        };
+                    else
+                        rdata =
+                            32'h00000000;
+
+                end
 
 
                 REG_OUTPUT_L:
@@ -241,7 +425,7 @@ module jupiter_audio
 
 
     // ------------------------------------------------------------
-    // State / writes
+    // State / writes / mixer
     // ------------------------------------------------------------
 
     always @(posedge clk) begin
@@ -265,6 +449,22 @@ module jupiter_audio
 
             sample_tick <=
                 1'b0;
+
+
+            mix_busy <=
+                1'b0;
+
+            mix_commit <=
+                1'b0;
+
+            mix_voice_index <=
+                2'd0;
+
+            mix_left_accum <=
+                27'sd0;
+
+            mix_right_accum <=
+                27'sd0;
 
 
             for (
@@ -302,12 +502,36 @@ module jupiter_audio
                 voice_done[i] <=
                     1'b0;
 
+
+                mix_voice_enabled[i] <=
+                    1'b0;
+
+                mix_sample_addr[i] <=
+                    12'h000;
+
+                mix_volume_l[i] <=
+                    8'h00;
+
+                mix_volume_r[i] <=
+                    8'h00;
+
+                mix_control_seen[i] <=
+                    1'b0;
+
             end
 
         end else begin
 
+            // One-cycle observation pulses.
+            sample_tick <=
+                1'b0;
+
+            mix_commit <=
+                1'b0;
+
+
             // ----------------------------------------------------
-            // Exact-average 48 kHz sample-update tick.
+            // 20 MHz -> exact-average 48 kHz phase accumulator.
             // ----------------------------------------------------
 
             if (sample_tick_fire) begin
@@ -319,55 +543,56 @@ module jupiter_audio
                 sample_tick <=
                     1'b1;
 
-                sample_count_reg <=
-                    sample_count_reg +
-                    32'd1;
+
+                // Four mixer cycles are vastly shorter than the
+                // 416/417-cycle output period, so a new tick cannot
+                // normally arrive while the prior update is active.
+                if (!mix_busy) begin
+
+                    mix_busy <=
+                        1'b1;
+
+                    mix_voice_index <=
+                        2'd0;
+
+                    mix_left_accum <=
+                        27'sd0;
+
+                    mix_right_accum <=
+                        27'sd0;
 
 
-                // M7B-2 performs deterministic voice sequencing only.
-                //
-                // The pre-increment POSITION represents the source sample
-                // associated with this output update. Actual PCM fetch,
-                // volume scaling, mixing, and saturation are implemented
-                // in the later mixer checkpoint.
-                for (
-                    i = 0;
-                    i < 4;
-                    i = i + 1
-                ) begin
-
-                    if (
-                        voice_active[i] &&
-                        !(
-                            control_command_write &&
-                            (voice_index == i)
-                        )
+                    // Snapshot the state belonging to this output tick.
+                    //
+                    // A simultaneous START/STOP command wins and the old
+                    // playback state does not contribute to this tick.
+                    for (
+                        i = 0;
+                        i < 4;
+                        i = i + 1
                     ) begin
 
-                        if (
-                            (
-                                voice_position[i] +
-                                13'd1
-                            ) >=
-                            active_length[i]
-                        ) begin
+                        mix_voice_enabled[i] <=
+                            voice_active[i] &&
+                            !(
+                                playback_command_write &&
+                                (voice_index == i)
+                            );
 
-                            voice_position[i] <=
-                                active_length[i];
+                        mix_sample_addr[i] <=
+                            active_base[i] +
+                            voice_position[i][11:0];
 
-                            voice_active[i] <=
-                                1'b0;
+                        mix_volume_l[i] <=
+                            voice_volume_l_reg[i];
 
-                            voice_done[i] <=
-                                1'b1;
+                        mix_volume_r[i] <=
+                            voice_volume_r_reg[i];
 
-                        end else begin
+                        mix_control_seen[i] <=
+                            playback_command_write &&
+                            (voice_index == i);
 
-                            voice_position[i] <=
-                                voice_position[i] +
-                                13'd1;
-
-                        end
                     end
                 end
 
@@ -376,196 +601,310 @@ module jupiter_audio
                 sample_phase_reg <=
                     sample_phase_sum;
 
-                sample_tick <=
-                    1'b0;
+            end
 
+
+            // ----------------------------------------------------
+            // Serialized PCM fetch / stereo accumulation.
+            // ----------------------------------------------------
+
+            if (mix_busy) begin
+
+                if (
+                    mix_voice_index ==
+                    2'd3
+                ) begin
+
+                    // Voice three's current contribution has not yet
+                    // been stored in the accumulator, so use the
+                    // combinational "next" sum for final scaling.
+                    output_l_reg <=
+                        saturate_s16(
+                            mix_left_scaled_next
+                        );
+
+                    output_r_reg <=
+                        saturate_s16(
+                            mix_right_scaled_next
+                        );
+
+                    sample_count_reg <=
+                        sample_count_reg +
+                        32'd1;
+
+                    mix_busy <=
+                        1'b0;
+
+                    mix_commit <=
+                        1'b1;
+
+
+                    // The sample at the pre-increment POSITION has now
+                    // contributed to the committed output.
+                    for (
+                        i = 0;
+                        i < 4;
+                        i = i + 1
+                    ) begin
+
+                        if (
+                            mix_voice_enabled[i] &&
+                            !mix_control_seen[i] &&
+                            !(
+                                playback_command_write &&
+                                (voice_index == i)
+                            )
+                        ) begin
+
+                            if (
+                                (
+                                    voice_position[i] +
+                                    13'd1
+                                ) >=
+                                active_length[i]
+                            ) begin
+
+                                voice_position[i] <=
+                                    active_length[i];
+
+                                voice_active[i] <=
+                                    1'b0;
+
+                                voice_done[i] <=
+                                    1'b1;
+
+                            end else begin
+
+                                voice_position[i] <=
+                                    voice_position[i] +
+                                    13'd1;
+
+                            end
+                        end
+                    end
+
+                end else begin
+
+                    mix_left_accum <=
+                        mix_left_sum_next;
+
+                    mix_right_accum <=
+                        mix_right_sum_next;
+
+                    mix_voice_index <=
+                        mix_voice_index +
+                        2'd1;
+
+                end
             end
 
 
             // ----------------------------------------------------
             // CPU MMIO writes.
             //
-            // These assignments occur after sequencing assignments so a
-            // CONTROL command for a voice has deterministic priority when
-            // it coincides with a sample tick.
+            // A stalled SAMPLE_DATA transaction does not mutate RAM.
+            // Other registers remain immediately available.
             // ----------------------------------------------------
 
-            if (valid && write) begin
+            if (
+                valid &&
+                write &&
+                ready
+            ) begin
 
                 case (addr)
 
-                REG_SAMPLE_ADDR: begin
+                    REG_SAMPLE_ADDR: begin
 
-                    if (wstrb[0])
-                        sample_addr_reg[7:0] <=
-                            wdata[7:0];
+                        if (wstrb[0])
+                            sample_addr_reg[7:0] <=
+                                wdata[7:0];
 
-                    if (wstrb[1])
-                        sample_addr_reg[11:8] <=
-                            wdata[11:8];
+                        if (wstrb[1])
+                            sample_addr_reg[11:8] <=
+                                wdata[11:8];
 
-                end
-
-
-                REG_SAMPLE_DATA: begin
-
-                    if (wstrb[0])
-                        sample_ram[
-                            sample_addr_reg
-                        ][7:0] <=
-                            wdata[7:0];
-
-                    if (wstrb[1])
-                        sample_ram[
-                            sample_addr_reg
-                        ][15:8] <=
-                            wdata[15:8];
-
-                end
+                    end
 
 
-                default: begin
+                    REG_SAMPLE_DATA: begin
 
-                    if (voice_selected) begin
+                        if (wstrb[0])
+                            sample_ram[
+                                sample_addr_reg
+                            ][7:0] <=
+                                wdata[7:0];
 
-                        case (voice_offset)
+                        if (wstrb[1])
+                            sample_ram[
+                                sample_addr_reg
+                            ][15:8] <=
+                                wdata[15:8];
 
-                            VOICE_CONTROL: begin
-
-                                if (wstrb[0]) begin
-
-                                    // CLEAR_DONE first.
-                                    if (wdata[2])
-                                        voice_done[
-                                            voice_index
-                                        ] <= 1'b0;
-
-
-                                    // STOP has priority over START.
-                                    if (wdata[1]) begin
-
-                                        voice_active[
-                                            voice_index
-                                        ] <= 1'b0;
-
-                                    end else if (wdata[0]) begin
-
-                                        active_base[
-                                            voice_index
-                                        ] <=
-                                            voice_base_reg[
-                                                voice_index
-                                            ];
-
-                                        active_length[
-                                            voice_index
-                                        ] <=
-                                            selected_effective_length;
-
-                                        voice_position[
-                                            voice_index
-                                        ] <=
-                                            13'h0000;
+                    end
 
 
+                    default: begin
+
+                        if (voice_selected) begin
+
+                            case (voice_offset)
+
+                                VOICE_CONTROL: begin
+
+                                    if (wstrb[0]) begin
+
+                                        // If START or STOP arrives after a
+                                        // tick snapshot, preserve that newer
+                                        // command state at mixer commit.
                                         if (
-                                            voice_length_reg[
+                                            mix_busy &&
+                                            (
+                                                wdata[1] ||
+                                                wdata[0]
+                                            )
+                                        )
+                                            mix_control_seen[
                                                 voice_index
-                                            ] == 13'h0000
-                                        ) begin
+                                            ] <=
+                                                1'b1;
+
+
+                                        // CLEAR_DONE first.
+                                        if (wdata[2])
+                                            voice_done[
+                                                voice_index
+                                            ] <=
+                                                1'b0;
+
+
+                                        // STOP has priority over START.
+                                        if (wdata[1]) begin
 
                                             voice_active[
                                                 voice_index
                                             ] <=
                                                 1'b0;
 
-                                            voice_done[
+                                        end else if (wdata[0]) begin
+
+                                            active_base[
                                                 voice_index
                                             ] <=
-                                                1'b1;
+                                                voice_base_reg[
+                                                    voice_index
+                                                ];
 
-                                        end else begin
-
-                                            voice_active[
+                                            active_length[
                                                 voice_index
                                             ] <=
-                                                1'b1;
+                                                selected_effective_length;
 
-                                            voice_done[
+                                            voice_position[
                                                 voice_index
                                             ] <=
-                                                1'b0;
+                                                13'h0000;
 
+
+                                            if (
+                                                voice_length_reg[
+                                                    voice_index
+                                                ] ==
+                                                13'h0000
+                                            ) begin
+
+                                                voice_active[
+                                                    voice_index
+                                                ] <=
+                                                    1'b0;
+
+                                                voice_done[
+                                                    voice_index
+                                                ] <=
+                                                    1'b1;
+
+                                            end else begin
+
+                                                voice_active[
+                                                    voice_index
+                                                ] <=
+                                                    1'b1;
+
+                                                voice_done[
+                                                    voice_index
+                                                ] <=
+                                                    1'b0;
+
+                                            end
                                         end
                                     end
                                 end
-                            end
 
 
-                            VOICE_BASE: begin
+                                VOICE_BASE: begin
 
-                                if (wstrb[0])
-                                    voice_base_reg[
-                                        voice_index
-                                    ][7:0] <=
-                                        wdata[7:0];
+                                    if (wstrb[0])
+                                        voice_base_reg[
+                                            voice_index
+                                        ][7:0] <=
+                                            wdata[7:0];
 
-                                if (wstrb[1])
-                                    voice_base_reg[
-                                        voice_index
-                                    ][11:8] <=
-                                        wdata[11:8];
+                                    if (wstrb[1])
+                                        voice_base_reg[
+                                            voice_index
+                                        ][11:8] <=
+                                            wdata[11:8];
 
-                            end
-
-
-                            VOICE_LENGTH: begin
-
-                                if (wstrb[0])
-                                    voice_length_reg[
-                                        voice_index
-                                    ][7:0] <=
-                                        wdata[7:0];
-
-                                if (wstrb[1])
-                                    voice_length_reg[
-                                        voice_index
-                                    ][12:8] <=
-                                        wdata[12:8];
-
-                            end
+                                end
 
 
-                            VOICE_VOLUME_L: begin
+                                VOICE_LENGTH: begin
 
-                                if (wstrb[0])
-                                    voice_volume_l_reg[
-                                        voice_index
-                                    ] <=
-                                        wdata[7:0];
+                                    if (wstrb[0])
+                                        voice_length_reg[
+                                            voice_index
+                                        ][7:0] <=
+                                            wdata[7:0];
 
-                            end
+                                    if (wstrb[1])
+                                        voice_length_reg[
+                                            voice_index
+                                        ][12:8] <=
+                                            wdata[12:8];
 
-
-                            VOICE_VOLUME_R: begin
-
-                                if (wstrb[0])
-                                    voice_volume_r_reg[
-                                        voice_index
-                                    ] <=
-                                        wdata[7:0];
-
-                            end
+                                end
 
 
-                            default: begin
-                                // STATUS, POSITION, and reserved
-                                // offsets ignore writes.
-                            end
+                                VOICE_VOLUME_L: begin
 
-                        endcase
+                                    if (wstrb[0])
+                                        voice_volume_l_reg[
+                                            voice_index
+                                        ] <=
+                                            wdata[7:0];
+
+                                end
+
+
+                                VOICE_VOLUME_R: begin
+
+                                    if (wstrb[0])
+                                        voice_volume_r_reg[
+                                            voice_index
+                                        ] <=
+                                            wdata[7:0];
+
+                                end
+
+
+                                default: begin
+                                    // STATUS, POSITION, and reserved
+                                    // offsets ignore writes.
+                                end
+
+                            endcase
+                        end
                     end
-                end
 
                 endcase
             end
