@@ -45,13 +45,21 @@ module jupiter_interconnect
     output wire        dma_write,
     output wire [31:0] dma_addr,
     output wire [31:0] dma_wdata,
-    output wire [3:0]  dma_wstrb,
-
-    input  wire [31:0] dma_rdata,
+    output wire [3:0]  dma_wstrb,    input  wire [31:0] dma_rdata,
     input  wire        dma_ready,
 
+    // Milestone 7 audio control-MMIO target.
+    output wire        audio_valid,
+    output wire        audio_write,
+    output wire [31:0] audio_addr,
+    output wire [31:0] audio_wdata,
+    output wire  [3:0] audio_wstrb,
+
+    input  wire [31:0] audio_rdata,
+    input  wire        audio_ready,
+
     // Milestone 4 external SDRAM target.
-    output wire        sdram_valid,
+output wire        sdram_valid,
     output wire        sdram_write,
     output wire [31:0] sdram_addr,
     output wire [31:0] sdram_wdata,
@@ -68,13 +76,14 @@ module jupiter_interconnect
     localparam [31:0] MMIO_END   = 32'h00001003;
 
     localparam [31:0] GPU_START  = 32'h00001100;
-    localparam [31:0] GPU_END    = 32'h000011FF;
-
-    localparam [31:0] DMA_START  = 32'h00001200;
+    localparam [31:0] GPU_END    = 32'h000011FF;    localparam [31:0] DMA_START  = 32'h00001200;
     localparam [31:0] DMA_END    = 32'h000012FF;
 
+    localparam [31:0] AUDIO_START = 32'h00001300;
+    localparam [31:0] AUDIO_END   = 32'h000013FF;
+
     localparam [31:0] SDRAM_START = 32'h10000000;
-    localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
+localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
 
     wire aligned = (m_addr[1:0] == 2'b00);
 
@@ -94,16 +103,20 @@ module jupiter_interconnect
         m_valid &&
         aligned &&
         (m_addr >= GPU_START) &&
-        (m_addr <= GPU_END);
-
-    wire dma_selected =
+        (m_addr <= GPU_END);    wire dma_selected =
         m_valid &&
         aligned &&
         (m_addr >= DMA_START) &&
         (m_addr <= DMA_END);
 
-    wire sdram_selected =
+    wire audio_selected =
         m_valid &&
+        aligned &&
+        (m_addr >= AUDIO_START) &&
+        (m_addr <= AUDIO_END);
+
+    wire sdram_selected =
+m_valid &&
         aligned &&
         (m_addr >= SDRAM_START) &&
         (m_addr <= SDRAM_END);
@@ -125,16 +138,20 @@ module jupiter_interconnect
     assign gpu_write = m_write;
     assign gpu_addr  = m_addr;
     assign gpu_wdata = m_wdata;
-    assign gpu_wstrb = m_wstrb;
-
-    assign dma_valid = dma_selected;
+    assign gpu_wstrb = m_wstrb;    assign dma_valid = dma_selected;
     assign dma_write = m_write;
     assign dma_addr  = m_addr;
     assign dma_wdata = m_wdata;
     assign dma_wstrb = m_wstrb;
 
+    assign audio_valid = audio_selected;
+    assign audio_write = m_write;
+    assign audio_addr  = m_addr;
+    assign audio_wdata = m_wdata;
+    assign audio_wstrb = m_wstrb;
+
     assign sdram_valid = sdram_selected;
-    assign sdram_write = m_write;
+assign sdram_write = m_write;
     assign sdram_addr  = m_addr;
     assign sdram_wdata = m_wdata;
     assign sdram_wstrb = m_wstrb;
@@ -147,19 +164,19 @@ module jupiter_interconnect
     assign m_ready =
         !m_valid       ? 1'b0 :
         ram_selected   ? ram_ready :
-        mmio_selected  ? mmio_ready :
-        gpu_selected   ? gpu_ready :
+        mmio_selected  ? mmio_ready :        gpu_selected   ? gpu_ready :
         dma_selected   ? dma_ready :
+        audio_selected ? audio_ready :
         sdram_selected ? sdram_ready :
-                         1'b1;
+1'b1;
 
     assign m_rdata =
         !m_valid       ? 32'h00000000 :
         ram_selected   ? ram_rdata :
-        mmio_selected  ? mmio_rdata :
-        gpu_selected   ? gpu_rdata :
+        mmio_selected  ? mmio_rdata :        gpu_selected   ? gpu_rdata :
         dma_selected   ? dma_rdata :
+        audio_selected ? audio_rdata :
         sdram_selected ? sdram_rdata :
-                         32'h00000000;
+32'h00000000;
 
 endmodule

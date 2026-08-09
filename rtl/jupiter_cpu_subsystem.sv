@@ -57,9 +57,7 @@ module jupiter_cpu_subsystem
     wire [31:0] gpu_wdata;
     wire  [3:0] gpu_wstrb;
     wire [31:0] gpu_rdata;
-    wire        gpu_ready;
-
-    // DMA control-MMIO target interface.
+    wire        gpu_ready;    // DMA control-MMIO target interface.
     wire        dma_valid;
     wire        dma_write;
     wire [31:0] dma_addr;
@@ -68,8 +66,17 @@ module jupiter_cpu_subsystem
     wire [31:0] dma_rdata;
     wire        dma_ready;
 
+    // Audio control-MMIO target interface.
+    wire        audio_valid;
+    wire        audio_write;
+    wire [31:0] audio_addr;
+    wire [31:0] audio_wdata;
+    wire  [3:0] audio_wstrb;
+    wire [31:0] audio_rdata;
+    wire        audio_ready;
+
     // CPU external-SDRAM target interface from the interconnect.
-    wire        sdram_valid;
+wire        sdram_valid;
     wire        sdram_write;
     wire [31:0] sdram_addr;
     wire [31:0] sdram_wdata;
@@ -174,12 +181,19 @@ module jupiter_cpu_subsystem
         .dma_write  (dma_write),
         .dma_addr   (dma_addr),
         .dma_wdata  (dma_wdata),
-        .dma_wstrb  (dma_wstrb),
-        .dma_rdata  (dma_rdata),
+        .dma_wstrb  (dma_wstrb),        .dma_rdata  (dma_rdata),
         .dma_ready  (dma_ready),
 
+        .audio_valid (audio_valid),
+        .audio_write (audio_write),
+        .audio_addr  (audio_addr),
+        .audio_wdata (audio_wdata),
+        .audio_wstrb (audio_wstrb),
+        .audio_rdata (audio_rdata),
+        .audio_ready (audio_ready),
+
         .sdram_valid (sdram_valid),
-        .sdram_write (sdram_write),
+.sdram_write (sdram_write),
         .sdram_addr  (sdram_addr),
         .sdram_wdata (sdram_wdata),
         .sdram_wstrb (sdram_wstrb),
@@ -347,10 +361,23 @@ module jupiter_cpu_subsystem
         .sdram_write (dma_sdram_write),
         .sdram_addr  (dma_sdram_addr),
         .sdram_wdata (dma_sdram_wdata),
-        .sdram_wstrb (dma_sdram_wstrb),
-
-        .sdram_rdata (dma_sdram_rdata),
+        .sdram_wstrb (dma_sdram_wstrb),        .sdram_rdata (dma_sdram_rdata),
         .sdram_ready (dma_sdram_ready)
+    );
+
+    jupiter_audio audio
+    (
+        .clk   (clk),
+        .reset (reset),
+
+        .valid (audio_valid),
+        .write (audio_write),
+        .addr  (audio_addr),
+        .wdata (audio_wdata),
+        .wstrb (audio_wstrb),
+
+        .rdata (audio_rdata),
+        .ready (audio_ready)
     );
 
 endmodule

@@ -25,6 +25,7 @@ INTERNAL_RAM_RTL = ../rtl/memory/jupiter_internal_ram.sv
 MMIO_SCRATCH_RTL = ../rtl/peripherals/jupiter_mmio_scratch.sv
 GPU_2D_RTL = ../rtl/gpu/jupiter_gpu_2d.sv
 DMA_RTL = ../rtl/dma/jupiter_dma.sv
+AUDIO_RTL = ../rtl/audio/jupiter_audio.sv
 SDRAM_ARBITER_RTL = ../rtl/memory/jupiter_sdram_arbiter.sv
 SDRAM_FRONTEND_RTL = ../rtl/memory/jupiter_sdram_frontend.sv
 SDRAM_CONTROLLER_RTL = ../rtl/memory/jupiter_sdram_controller.sv
@@ -36,12 +37,13 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(MMIO_SCRATCH_RTL) \
                     $(GPU_2D_RTL) \
                     $(DMA_RTL) \
+                    $(AUDIO_RTL) \
                     $(SDRAM_ARBITER_RTL) \
                     $(SDRAM_FRONTEND_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
 
-.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test \
+.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
@@ -49,12 +51,13 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	gpu-tilemap-test gpu-tiledata-test gpu-framebuffer-test \
 	gpu-full-tile-test gpu-full-map-test \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test cpu-dma-mmio-test \
+	audio-regs-test interconnect-audio-test cpu-audio-mmio-test \
 	sdram-arbiter-test shared-sdram-test dma-sdram-path-test gpu-sdram-render-test \
 	gpu-sdram-contention-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test
+test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test
 
 m1-test: core-test system-test stub-test
 
@@ -83,6 +86,20 @@ m6c-test: sdram-arbiter-test dma-sdram-path-test
 m6d-test: dma-regs-test dma-multiword-test dma-copy-test
 
 m6e-test: cpu-dma-contention-test gpu-dma-contention-test three-master-contention-test
+
+m7b-test: audio-regs-test interconnect-audio-test cpu-audio-mmio-test
+
+audio-regs-test:
+	iverilog -g2012 -s jupiter_audio_tb -o jupiter_audio.vvp $(AUDIO_RTL) jupiter_audio_tb.sv
+	vvp -n jupiter_audio.vvp
+
+interconnect-audio-test:
+	iverilog -g2012 -s jupiter_interconnect_audio_tb -o jupiter_interconnect_audio.vvp $(INTERCONNECT_RTL) jupiter_interconnect_audio_tb.sv
+	vvp -n jupiter_interconnect_audio.vvp
+
+cpu-audio-mmio-test:
+	iverilog -g2012 -s jupiter_cpu_audio_mmio_tb -o jupiter_cpu_audio_mmio.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_audio_mmio_tb.sv
+	vvp -n jupiter_cpu_audio_mmio.vvp
 
 core-test:
 	iverilog -g2012 -s jupiter_core_tb -o jupiter_core.vvp $(CORE_SRCS)
@@ -256,3 +273,4 @@ clean:
 		jupiter_dma_multiword.vvp jupiter_dma_copy.vvp \
 		jupiter_cpu_dma_contention.vvp jupiter_gpu_dma_contention.vvp \
 		jupiter_three_master_contention.vvp
+	rm -f jupiter_audio.vvp jupiter_interconnect_audio.vvp jupiter_cpu_audio_mmio.vvp

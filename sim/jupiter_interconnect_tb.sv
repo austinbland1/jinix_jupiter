@@ -42,13 +42,20 @@ module jupiter_interconnect_tb;
     wire        dma_write;
     wire [31:0] dma_addr;
     wire [31:0] dma_wdata;
-    wire  [3:0] dma_wstrb;
-
-    reg  [31:0] dma_rdata;
+    wire  [3:0] dma_wstrb;    reg  [31:0] dma_rdata;
     reg         dma_ready;
 
+    wire        audio_valid;
+    wire        audio_write;
+    wire [31:0] audio_addr;
+    wire [31:0] audio_wdata;
+    wire  [3:0] audio_wstrb;
+
+    reg  [31:0] audio_rdata;
+    reg         audio_ready;
+
     wire        sdram_valid;
-    wire        sdram_write;
+wire        sdram_write;
     wire [31:0] sdram_addr;
     wire [31:0] sdram_wdata;
     wire [3:0]  sdram_wstrb;
@@ -98,12 +105,19 @@ module jupiter_interconnect_tb;
         .dma_write  (dma_write),
         .dma_addr   (dma_addr),
         .dma_wdata  (dma_wdata),
-        .dma_wstrb  (dma_wstrb),
-        .dma_rdata  (dma_rdata),
+        .dma_wstrb  (dma_wstrb),        .dma_rdata  (dma_rdata),
         .dma_ready  (dma_ready),
 
+        .audio_valid (audio_valid),
+        .audio_write (audio_write),
+        .audio_addr  (audio_addr),
+        .audio_wdata (audio_wdata),
+        .audio_wstrb (audio_wstrb),
+        .audio_rdata (audio_rdata),
+        .audio_ready (audio_ready),
+
         .sdram_valid (sdram_valid),
-        .sdram_write (sdram_write),
+.sdram_write (sdram_write),
         .sdram_addr  (sdram_addr),
         .sdram_wdata (sdram_wdata),
         .sdram_wstrb (sdram_wstrb),
@@ -143,13 +157,14 @@ module jupiter_interconnect_tb;
         mmio_ready = 1'b0;
 
         gpu_rdata = 32'h00000000;
-        gpu_ready = 1'b0;
-
-        dma_rdata = 32'h00000000;
+        gpu_ready = 1'b0;        dma_rdata = 32'h00000000;
         dma_ready = 1'b0;
 
+        audio_rdata = 32'h00000000;
+        audio_ready = 1'b0;
+
         sdram_rdata = 32'h00000000;
-        sdram_ready = 1'b0;
+sdram_ready = 1'b0;
 
         #1;
 
@@ -336,18 +351,51 @@ module jupiter_interconnect_tb;
               dma_wstrb == 4'b1010,
               "DMA write data and strobes are forwarded");
 
-        // First aligned address after the DMA aperture is unmapped.
-        m_addr      = 32'h00001300;
-        m_write     = 1'b0;
-        m_wstrb     = 4'b0000;
-        dma_ready   = 1'b0;
+        // First aligned address after the audio aperture is unmapped.
+        //
+        // Explicitly restore every target-response input to an idle value so
+        // this legacy decode check is independent of preceding target tests.
+        m_valid       = 1'b1;
+        m_write       = 1'b0;
+        m_addr        = 32'h00001400;
+        m_wdata       = 32'h00000000;
+        m_wstrb       = 4'b0000;
+
+        ram_rdata     = 32'h00000000;
+        ram_ready     = 1'b0;
+
+        mmio_rdata    = 32'h00000000;
+        mmio_ready    = 1'b0;
+
+        gpu_rdata     = 32'h00000000;
+        gpu_ready     = 1'b0;
+
+        dma_rdata     = 32'h00000000;
+        dma_ready     = 1'b0;
+
+        audio_rdata   = 32'h00000000;
+        audio_ready   = 1'b0;
+
+        sdram_rdata   = 32'h00000000;
+        sdram_ready   = 1'b0;
+
         #1;
 
-        check(!ram_valid && !mmio_valid && !gpu_valid &&
-              !dma_valid && !sdram_valid,
-              "address after DMA aperture selects no target");
-        check(m_ready && m_rdata == 32'h00000000,
-              "address after DMA aperture uses unmapped response");
+        check(
+            !ram_valid &&
+            !mmio_valid &&
+            !gpu_valid &&
+            !dma_valid &&
+            !audio_valid &&
+            !sdram_valid,
+            "address after audio aperture selects no target"
+        );
+
+        check(
+            m_ready &&
+            m_rdata == 32'h00000000,
+            "address after audio aperture uses unmapped response"
+        );
 
         // Misaligned access must not reach any target.
         m_addr       = 32'h00001001;
