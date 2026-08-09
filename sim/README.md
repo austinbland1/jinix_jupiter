@@ -181,3 +181,30 @@ belong to later milestones.
 Passing the host-side regression does not establish Quartus synthesis,
 timing closure, FPGA resource usage, a final clock frequency, or physical
 SuperStation One hardware operation.
+
+## Milestone 4 External SDRAM Regression
+
+`make -C sim m4-test` runs the currently implemented Milestone 4
+external-memory regression:
+
+- `interconnect-test` — external-SDRAM target decoding and request routing
+- `cpu-subsystem-test` — integrated CPU/memory subsystem with SDRAM present
+- `system-test` — system-wrapper regression with the SDRAM interface propagated
+- `sdram-frontend-test` — 32-bit transaction conversion, installed-size
+  gating, stalls, read reassembly, and byte strobes
+- `sdram-controller-test` — initialization, command sequencing, and recurring
+  refresh/maintenance
+- `sdram-path-test` — frontend/controller/behavioral-memory round trips,
+  physical address mapping, byte masks, and refresh deferral across a logical
+  32-bit transaction
+- `cpu-sdram-test` — deterministic CPU store/load through the Milestone 3
+  interconnect and complete external-SDRAM path
+
+The top-level `make -C sim test` aggregate includes `m4-test` in addition to
+the previously established Milestone 1, CPU/Milestone 2, and Milestone 3
+regressions.
+
+The behavioral SDRAM model and host-side Icarus regressions validate
+functional RTL behavior only. They do not establish Quartus timing closure,
+FPGA resource usage, physical-SDRAM timing, or operation on SuperStation One
+hardware.
