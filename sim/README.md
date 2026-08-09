@@ -723,3 +723,58 @@ extended by M6C-1 to cover CPU/GPU/DMA behavior.
 These regressions are simulation evidence only. They do not establish
 Quartus synthesis, timing closure, measured arbitration throughput, FPGA
 resource usage, or operation on physical hardware.
+
+### Milestone 6C-2 Production DMA SDRAM Path Integration
+
+Run the Milestone 6C aggregate with:
+
+    make -C sim m6c-test
+
+The focused integrated DMA-memory-path regression is:
+
+    make -C sim dma-sdram-path-test
+
+Milestone 6C-2 connects the production `jupiter_dma` external-SDRAM master
+interface to the CPU/GPU/DMA three-master arbiter proven in M6C-1.
+
+The production path is now:
+
+    jupiter_dma
+      -> jupiter_sdram_arbiter
+      -> jupiter_sdram_frontend
+      -> jupiter_sdram_controller
+      -> external SDR SDRAM
+
+Arbiter completion and read data are also returned to the production
+`jupiter_dma` instance.
+
+The DMA transfer engine itself remains intentionally idle at this checkpoint.
+To validate the newly connected path without inventing copy-engine behavior,
+`jupiter_dma_sdram_path_tb.sv` uses simulation-only force/release injection
+on the real production DMA master wires.
+
+The integration regression verifies:
+
+- real CPU and injected DMA requests contend at the production arbiter;
+- the post-reset CPU-first contested policy is retained;
+- the waiting DMA request progresses after the CPU transaction;
+- DMA write data and write strobes survive arbitration;
+- DMA completion reaches the production `jupiter_dma` response input;
+- a DMA 32-bit write/read round trip traverses the frontend, controller,
+  and behavioral SDRAM model;
+- an adjacent CPU-owned SDRAM word remains unchanged;
+- four logical 32-bit accesses produce the expected physical halfword
+  command counts;
+- the behavioral SDRAM model reports no protocol error; and
+- the shared path returns to idle.
+
+This proves the production DMA memory-master wiring and shared-memory path.
+It does not prove a nonzero DMA copy operation. The synthesizable transfer
+engine that generates read/write requests belongs to the following
+Milestone 6 implementation checkpoint.
+
+Simulation command counts and wait times are verification observations only.
+They are not throughput or timing guarantees.
+
+These regressions do not establish Quartus synthesis, timing closure,
+FPGA resource usage, measured DMA bandwidth, or physical-hardware operation.

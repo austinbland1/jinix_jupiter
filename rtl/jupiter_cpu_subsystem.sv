@@ -88,14 +88,15 @@ module jupiter_cpu_subsystem
 
     // DMA external-SDRAM master interface.
     //
-    // M6B-2 exposes these production DMA ports but deliberately leaves
-    // them disconnected from the two-master CPU/GPU arbiter. M6C owns
-    // the three-master arbitration change.
+    // M6C-2 connects this production interface to the shared
+    // CPU/GPU/DMA SDRAM arbiter.
     wire        dma_sdram_valid;
     wire        dma_sdram_write;
     wire [31:0] dma_sdram_addr;
     wire [31:0] dma_sdram_wdata;
     wire  [3:0] dma_sdram_wstrb;
+    wire [31:0] dma_sdram_rdata;
+    wire        dma_sdram_ready;
 
     // Shared post-arbitration 32-bit interface toward the M4 frontend.
     wire        shared_sdram_valid;
@@ -207,15 +208,13 @@ module jupiter_cpu_subsystem
         .gpu_rdata   (gpu_sdram_rdata),
         .gpu_ready   (gpu_sdram_ready),
 
-        // M6C-1 interface compatibility only. The production DMA
-        // master remains disconnected until M6C-2.
-        .dma_valid   (1'b0),
-        .dma_write   (1'b0),
-        .dma_addr    (32'h00000000),
-        .dma_wdata   (32'h00000000),
-        .dma_wstrb   (4'b0000),
-        .dma_rdata   (),
-        .dma_ready   (),
+        .dma_valid   (dma_sdram_valid),
+        .dma_write   (dma_sdram_write),
+        .dma_addr    (dma_sdram_addr),
+        .dma_wdata   (dma_sdram_wdata),
+        .dma_wstrb   (dma_sdram_wstrb),
+        .dma_rdata   (dma_sdram_rdata),
+        .dma_ready   (dma_sdram_ready),
 
         .sdram_valid (shared_sdram_valid),
         .sdram_write (shared_sdram_write),
@@ -350,9 +349,8 @@ module jupiter_cpu_subsystem
         .sdram_wdata (dma_sdram_wdata),
         .sdram_wstrb (dma_sdram_wstrb),
 
-        // M6B-2 intentionally does not connect DMA to the SDRAM arbiter.
-        .sdram_rdata (32'h00000000),
-        .sdram_ready (1'b0)
+        .sdram_rdata (dma_sdram_rdata),
+        .sdram_ready (dma_sdram_ready)
     );
 
 endmodule
