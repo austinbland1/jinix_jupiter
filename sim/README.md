@@ -1041,3 +1041,56 @@ They are not throughput, fairness-latency, timing, or performance guarantees.
 
 This checkpoint does not establish Quartus timing closure, FPGA resource
 usage, or physical-hardware operation.
+
+### Milestone 6E-3 Integrated Three-Master Contention
+
+Run the focused production contention regression with:
+
+    make -C sim three-master-contention-test
+
+The complete Milestone 6E contention aggregate is:
+
+    make -C sim m6e-test
+
+Milestone 6E-3 runs all three real synthesizable external-SDRAM masters
+concurrently through the production arbiter/frontend/controller path.
+
+A real Jupiter CPU program configures and starts a 2x2 GPU render and a
+64-word DMA copy, then executes 64 external-SDRAM store/load pairs against
+a third disjoint CPU region before polling GPU and DMA DONE and halting.
+
+The focused regression verifies:
+
+- exact CPU traffic of 64 reads plus 64 writes;
+- exact GPU traffic of 132 reads plus 128 writes;
+- exact DMA traffic of 64 reads plus 64 writes;
+- at least one cycle with CPU, GPU, and DMA requests all asserted;
+- CPU progress while GPU and DMA requests are pending;
+- GPU progress while CPU and DMA requests are pending;
+- DMA progress while CPU and GPU requests are pending;
+- completed contested wins by CPU;
+- completed contested wins by GPU;
+- completed contested wins by DMA;
+- exact CPU store/load readback;
+- complete tilemap and tile-data source preservation;
+- exact complete 16x16 framebuffer contents;
+- all DMA source words preserved;
+- all DMA destination words copied exactly;
+- unrelated low/high memory guards preserved;
+- 520 physical 16-bit READ commands;
+- 512 physical 16-bit WRITE commands;
+- 1032 ACTIVE commands; and
+- no behavioral-SDRAM protocol error.
+
+All three workloads use disjoint external-SDRAM regions. The test does not
+override production master signals and introduces no synthesizable behavior.
+
+Milestone 6E-3 addresses simultaneous CPU/GPU/DMA contention and integrated
+forward progress by every requesting master under the selected arbitration
+policy.
+
+Simulation cycle and command counts are verification observations only.
+They are not throughput, fairness-latency, timing, or performance guarantees.
+
+This checkpoint does not establish Quartus timing closure, FPGA resource
+usage, or operation on physical hardware.
