@@ -45,7 +45,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
 
-.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test \
+.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test m9c-test \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
@@ -55,13 +55,13 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test cpu-dma-mmio-test \
 	audio-regs-test audio-playback-test audio-mixer-test interconnect-audio-test cpu-audio-mmio-test audio-topology-test \
 	controller-regs-test interconnect-controller-test cpu-controller-mmio-test controller-topology-test \
-	assembler-test image-builder-test \
+	assembler-test image-builder-test boot-image-test \
 	sdram-arbiter-test shared-sdram-test dma-sdram-path-test gpu-sdram-render-test \
 	gpu-sdram-contention-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test
+test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test m9c-test
 
 m1-test: core-test system-test stub-test
 
@@ -98,6 +98,8 @@ m8b-test: controller-regs-test interconnect-controller-test cpu-controller-mmio-
 
 m9b-test: assembler-test image-builder-test
 
+m9c-test: boot-image-test
+
 audio-topology-test:
 	python3 check_m7c_audio_topology.py
 
@@ -109,6 +111,14 @@ assembler-test:
 
 image-builder-test:
 	python3 -B ../software/tools/test_build_system_image.py
+
+boot-image-test:
+	python3 -B ../software/devkit/jupiter_asm.py ../software/bios/bios.asm -o m9c_bios.hex --origin 0x00000000
+	python3 -B ../software/devkit/jupiter_asm.py ../software/bios/test_program.asm -o m9c_program.hex --origin 0x00000400
+	python3 -B ../software/tools/build_system_image.py --bios m9c_bios.hex --app m9c_program.hex --output m9c_system.mem
+	python3 -B check_m9c_boot_image.py m9c_bios.hex m9c_program.hex m9c_system.mem
+	iverilog -g2012 -s jupiter_boot_image_tb -o jupiter_boot_image.vvp $(CPU_SUBSYSTEM_RTL) jupiter_boot_image_tb.sv
+	vvp -n jupiter_boot_image.vvp +IMAGE=m9c_system.mem
 
 audio-regs-test:
 	iverilog -g2012 -s jupiter_audio_tb -o jupiter_audio.vvp $(AUDIO_RTL) jupiter_audio_tb.sv
@@ -295,6 +305,7 @@ three-master-contention-test:
 	vvp -n jupiter_three_master_contention.vvp
 
 clean:
+	rm -f m9c_bios.hex m9c_program.hex m9c_system.mem jupiter_boot_image.vvp
 	rm -f jupiter_controllers.vvp jupiter_interconnect_controller.vvp jupiter_cpu_controller_mmio.vvp
 	rm -f jupiter_core.vvp jupiter_system.vvp jupiter_stubs.vvp \
 		jupiter_cpu_state.vvp jupiter_cpu_fetch.vvp \

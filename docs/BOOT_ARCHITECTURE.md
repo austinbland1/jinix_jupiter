@@ -272,12 +272,14 @@ See `docs/HOST_TOOLS.md`.
 
 ### M9C — BIOS and boot-image integration
 
-Implement:
+Implemented and verified:
 
-- original Jupiter BIOS source;
-- internal-RAM image initialization support;
-- generated BIOS/application system image;
-- deterministic BIOS-to-application simulation.
+- `software/bios/bios.asm` transfers execution from `0x00000000` to application entry `0x00000400`;
+- the M9B tools build the complete 1024-word internal-RAM image;
+- `sim/jupiter_boot_image_tb.sv` loads it with `$readmemh` before reset release;
+- the loading mechanism is simulation-only and leaves synthesizable RAM/CPU-subsystem RTL unchanged;
+- simulation verifies application execution, MMIO scratch write of `42`, and `HALT` at `0x0000040C`;
+- `make -C sim m9c-test` deterministically rebuilds and executes the path.
 
 ### M9D — End-to-end workflow and acceptance
 

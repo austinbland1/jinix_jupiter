@@ -49,6 +49,12 @@ Full regression:
 make -C sim test
 ```
 
+## M9C Boot Integration
+
+Run `make -C sim m9c-test` to assemble the BIOS at `0x00000000`, assemble the application at `0x00000400`, build the 1024-word image, load it with `$readmemh` before reset release, execute through the normal CPU/interconnect/RAM path, verify the MMIO scratch write of `42`, and verify `HALT` at `0x0000040C`.
+
+Generated `.hex`, `.mem`, and `.vvp` files are temporary build products.
+
 ## Boundary
 
-M9B implements source-to-word assembly and system-image construction. BIOS source, boot-image loading, BIOS execution, and BIOS-to-application transfer are M9C/M9D work.
+M9C establishes deterministic BIOS-to-application execution in simulation without changing synthesizable RAM or CPU-subsystem RTL. M9D owns final workflow documentation, acceptance, and closeout.
