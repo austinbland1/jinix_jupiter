@@ -13,7 +13,9 @@ module jupiter_system
     output wire       VBlank,
     output wire       VSync,
 
-    output wire [7:0] video,
+    output wire [7:0] video_r,
+    output wire [7:0] video_g,
+    output wire [7:0] video_b,
 
     // MiSTer-facing Jupiter PCM audio boundary.
     output wire signed [15:0] AUDIO_L,
@@ -127,24 +129,20 @@ module jupiter_system
     assign AUDIO_S   = 1'b1;
     assign AUDIO_MIX = 2'b00;
 
+    // M11B live display path.
+    //
+    // Timing and RGB now come directly from the framebuffer scanout engine.
+    // The inherited mycore demo is no longer part of the production video
+    // boundary.
+    assign ce_pix = scanout_ce_pix;
 
-    // Preserve the known-good MiSTer template demo-video path.
-    mycore video_demo
-    (
-        .clk        (clk),
-        .reset      (reset),
+    assign HBlank = scanout_hblank;
+    assign HSync  = scanout_hsync;
+    assign VBlank = scanout_vblank;
+    assign VSync  = scanout_vsync;
 
-        .pal        (pal),
-        .scandouble (scandouble),
-
-        .ce_pix     (ce_pix),
-
-        .HBlank     (HBlank),
-        .HSync      (HSync),
-        .VBlank     (VBlank),
-        .VSync      (VSync),
-
-        .video      (video)
-    );
+    assign video_r = scanout_video_r;
+    assign video_g = scanout_video_g;
+    assign video_b = scanout_video_b;
 
 endmodule

@@ -4,7 +4,6 @@ CORE_SRCS = ../rtl/jupiter_core.sv \
             jupiter_core_tb.sv
 
 SYSTEM_SRCS = template_compat_stubs.sv \
-              ../rtl/mycore.v \
               ../rtl/jupiter_core.sv \
               $(CPU_SUBSYSTEM_RTL) \
               ../rtl/jupiter_system.sv \
@@ -552,3 +551,43 @@ clean: m11b3a-clean
 
 m11b3a-clean:
 	rm -f jupiter_cpu_display_mmio.vvp
+
+
+# ============================================================
+# Milestone 11B-3b - live framebuffer video cutover
+# ============================================================
+
+.PHONY: m11b3b-test \
+	system-video-test \
+	template-video-cutover-test \
+	m11b3b-clean
+
+test: m11b3b-test
+
+m11b3b-test: m11b3a-test system-video-test template-video-cutover-test
+
+system-video-test:
+	iverilog -g2012 -s jupiter_system_video_tb -o jupiter_system_video.vvp $(SYSTEM_SRCS) jupiter_system_video_tb.sv
+	vvp -n jupiter_system_video.vvp
+
+template-video-cutover-test:
+	@grep -Fq 'wire [7:0] video_r;' ../Template.sv
+	@grep -Fq 'wire [7:0] video_g;' ../Template.sv
+	@grep -Fq 'wire [7:0] video_b;' ../Template.sv
+	@grep -Fq '.video_r(video_r),' ../Template.sv
+	@grep -Fq '.video_g(video_g),' ../Template.sv
+	@grep -Fq '.video_b(video_b),' ../Template.sv
+	@grep -Fq 'assign VGA_R = video_r;' ../Template.sv
+	@grep -Fq 'assign VGA_G = video_g;' ../Template.sv
+	@grep -Fq 'assign VGA_B = video_b;' ../Template.sv
+	@grep -Fq 'assign CE_PIXEL = ce_pix;' ../Template.sv
+	@grep -Fq 'assign VGA_DE = ~(HBlank | VBlank);' ../Template.sv
+	@! grep -Fq '.video(video),' ../Template.sv
+	@! grep -Fq '? video :' ../Template.sv
+	@! grep -Eq '^[[:space:]]*mycore[[:space:]]+video_demo\b' ../rtl/jupiter_system.sv
+	@echo 'PASS: Template maps Jupiter RGB888 scanout directly to MiSTer video'
+
+clean: m11b3b-clean
+
+m11b3b-clean:
+	rm -f jupiter_system_video.vvp
