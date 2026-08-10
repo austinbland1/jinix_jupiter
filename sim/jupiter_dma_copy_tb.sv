@@ -536,128 +536,368 @@ module jupiter_dma_copy_tb;
          * load or store in this program.
          */
 
-        dut.ram.memory[0] =
-            enc_i(
+        dut.ram.memory_b0[0] = (enc_i(
                 8'h10,
                 5'd1,
                 5'd0,
                 14'd4096
-            );
+            ));
+        dut.ram.memory_b1[0] = ((enc_i(
+                8'h10,
+                5'd1,
+                5'd0,
+                14'd4096
+            )) >> 8);
+        dut.ram.memory_b2[0] = ((enc_i(
+                8'h10,
+                5'd1,
+                5'd0,
+                14'd4096
+            )) >> 16);
+        dut.ram.memory_b3[0] = ((enc_i(
+                8'h10,
+                5'd1,
+                5'd0,
+                14'd4096
+            )) >> 24);
 
         for (i = 1;
              i <= 16;
              i = i + 1) begin
 
-            dut.ram.memory[i] =
-                enc_r(
+            dut.ram.memory_b0[i] = (enc_r(
                     8'h01,
                     5'd1,
                     5'd1,
                     5'd1
-                );
+                ));
+            dut.ram.memory_b1[i] = ((enc_r(
+                    8'h01,
+                    5'd1,
+                    5'd1,
+                    5'd1
+                )) >> 8);
+            dut.ram.memory_b2[i] = ((enc_r(
+                    8'h01,
+                    5'd1,
+                    5'd1,
+                    5'd1
+                )) >> 16);
+            dut.ram.memory_b3[i] = ((enc_r(
+                    8'h01,
+                    5'd1,
+                    5'd1,
+                    5'd1
+                )) >> 24);
         end
 
-        dut.ram.memory[17] =
-            enc_i(
+        dut.ram.memory_b0[17] = (enc_i(
                 8'h10,
                 5'd10,
                 5'd0,
                 14'd4608
-            );
+            ));
+        dut.ram.memory_b1[17] = ((enc_i(
+                8'h10,
+                5'd10,
+                5'd0,
+                14'd4608
+            )) >> 8);
+        dut.ram.memory_b2[17] = ((enc_i(
+                8'h10,
+                5'd10,
+                5'd0,
+                14'd4608
+            )) >> 16);
+        dut.ram.memory_b3[17] = ((enc_i(
+                8'h10,
+                5'd10,
+                5'd0,
+                14'd4608
+            )) >> 24);
 
-        dut.ram.memory[18] =
-            enc_i(
+        dut.ram.memory_b0[18] = (enc_i(
                 8'h10,
                 5'd2,
                 5'd1,
                 14'd256
-            );
+            ));
+        dut.ram.memory_b1[18] = ((enc_i(
+                8'h10,
+                5'd2,
+                5'd1,
+                14'd256
+            )) >> 8);
+        dut.ram.memory_b2[18] = ((enc_i(
+                8'h10,
+                5'd2,
+                5'd1,
+                14'd256
+            )) >> 16);
+        dut.ram.memory_b3[18] = ((enc_i(
+                8'h10,
+                5'd2,
+                5'd1,
+                14'd256
+            )) >> 24);
 
-        dut.ram.memory[19] =
-            enc_i(
+        dut.ram.memory_b0[19] = (enc_i(
                 8'h10,
                 5'd3,
                 5'd1,
                 14'd512
-            );
+            ));
+        dut.ram.memory_b1[19] = ((enc_i(
+                8'h10,
+                5'd3,
+                5'd1,
+                14'd512
+            )) >> 8);
+        dut.ram.memory_b2[19] = ((enc_i(
+                8'h10,
+                5'd3,
+                5'd1,
+                14'd512
+            )) >> 16);
+        dut.ram.memory_b3[19] = ((enc_i(
+                8'h10,
+                5'd3,
+                5'd1,
+                14'd512
+            )) >> 24);
 
-        dut.ram.memory[20] =
-            enc_i(
+        dut.ram.memory_b0[20] = (enc_i(
                 8'h10,
                 5'd4,
                 5'd0,
                 14'd4
-            );
+            ));
+        dut.ram.memory_b1[20] = ((enc_i(
+                8'h10,
+                5'd4,
+                5'd0,
+                14'd4
+            )) >> 8);
+        dut.ram.memory_b2[20] = ((enc_i(
+                8'h10,
+                5'd4,
+                5'd0,
+                14'd4
+            )) >> 16);
+        dut.ram.memory_b3[20] = ((enc_i(
+                8'h10,
+                5'd4,
+                5'd0,
+                14'd4
+            )) >> 24);
 
-        dut.ram.memory[21] =
-            enc_i(
+        dut.ram.memory_b0[21] = (enc_i(
                 8'h10,
                 5'd5,
                 5'd0,
                 14'd1
-            );
+            ));
+        dut.ram.memory_b1[21] = ((enc_i(
+                8'h10,
+                5'd5,
+                5'd0,
+                14'd1
+            )) >> 8);
+        dut.ram.memory_b2[21] = ((enc_i(
+                8'h10,
+                5'd5,
+                5'd0,
+                14'd1
+            )) >> 16);
+        dut.ram.memory_b3[21] = ((enc_i(
+                8'h10,
+                5'd5,
+                5'd0,
+                14'd1
+            )) >> 24);
 
-        dut.ram.memory[22] =
-            enc_i(
+        dut.ram.memory_b0[22] = (enc_i(
                 8'h10,
                 5'd6,
                 5'd0,
                 14'd2
-            );
+            ));
+        dut.ram.memory_b1[22] = ((enc_i(
+                8'h10,
+                5'd6,
+                5'd0,
+                14'd2
+            )) >> 8);
+        dut.ram.memory_b2[22] = ((enc_i(
+                8'h10,
+                5'd6,
+                5'd0,
+                14'd2
+            )) >> 16);
+        dut.ram.memory_b3[22] = ((enc_i(
+                8'h10,
+                5'd6,
+                5'd0,
+                14'd2
+            )) >> 24);
 
-        dut.ram.memory[23] =
-            enc_s(
+        dut.ram.memory_b0[23] = (enc_s(
                 8'h21,
                 5'd2,
                 5'd10,
                 14'd8
-            );
+            ));
+        dut.ram.memory_b1[23] = ((enc_s(
+                8'h21,
+                5'd2,
+                5'd10,
+                14'd8
+            )) >> 8);
+        dut.ram.memory_b2[23] = ((enc_s(
+                8'h21,
+                5'd2,
+                5'd10,
+                14'd8
+            )) >> 16);
+        dut.ram.memory_b3[23] = ((enc_s(
+                8'h21,
+                5'd2,
+                5'd10,
+                14'd8
+            )) >> 24);
 
-        dut.ram.memory[24] =
-            enc_s(
+        dut.ram.memory_b0[24] = (enc_s(
                 8'h21,
                 5'd3,
                 5'd10,
                 14'd12
-            );
+            ));
+        dut.ram.memory_b1[24] = ((enc_s(
+                8'h21,
+                5'd3,
+                5'd10,
+                14'd12
+            )) >> 8);
+        dut.ram.memory_b2[24] = ((enc_s(
+                8'h21,
+                5'd3,
+                5'd10,
+                14'd12
+            )) >> 16);
+        dut.ram.memory_b3[24] = ((enc_s(
+                8'h21,
+                5'd3,
+                5'd10,
+                14'd12
+            )) >> 24);
 
-        dut.ram.memory[25] =
-            enc_s(
+        dut.ram.memory_b0[25] = (enc_s(
                 8'h21,
                 5'd4,
                 5'd10,
                 14'd16
-            );
+            ));
+        dut.ram.memory_b1[25] = ((enc_s(
+                8'h21,
+                5'd4,
+                5'd10,
+                14'd16
+            )) >> 8);
+        dut.ram.memory_b2[25] = ((enc_s(
+                8'h21,
+                5'd4,
+                5'd10,
+                14'd16
+            )) >> 16);
+        dut.ram.memory_b3[25] = ((enc_s(
+                8'h21,
+                5'd4,
+                5'd10,
+                14'd16
+            )) >> 24);
 
-        dut.ram.memory[26] =
-            enc_s(
+        dut.ram.memory_b0[26] = (enc_s(
                 8'h21,
                 5'd5,
                 5'd10,
                 14'd0
-            );
+            ));
+        dut.ram.memory_b1[26] = ((enc_s(
+                8'h21,
+                5'd5,
+                5'd10,
+                14'd0
+            )) >> 8);
+        dut.ram.memory_b2[26] = ((enc_s(
+                8'h21,
+                5'd5,
+                5'd10,
+                14'd0
+            )) >> 16);
+        dut.ram.memory_b3[26] = ((enc_s(
+                8'h21,
+                5'd5,
+                5'd10,
+                14'd0
+            )) >> 24);
 
         // Poll DMA STATUS at index 27.
-        dut.ram.memory[27] =
-            enc_i(
+        dut.ram.memory_b0[27] = (enc_i(
                 8'h20,
                 5'd7,
                 5'd10,
                 14'd4
-            );
+            ));
+        dut.ram.memory_b1[27] = ((enc_i(
+                8'h20,
+                5'd7,
+                5'd10,
+                14'd4
+            )) >> 8);
+        dut.ram.memory_b2[27] = ((enc_i(
+                8'h20,
+                5'd7,
+                5'd10,
+                14'd4
+            )) >> 16);
+        dut.ram.memory_b3[27] = ((enc_i(
+                8'h20,
+                5'd7,
+                5'd10,
+                14'd4
+            )) >> 24);
 
         // PC+4 at index 29; target index 27:
         // signed displacement = -2 words.
-        dut.ram.memory[28] =
-            enc_b(
+        dut.ram.memory_b0[28] = (enc_b(
                 8'h31,
                 5'd7,
                 5'd6,
                 14'h3FFE
-            );
+            ));
+        dut.ram.memory_b1[28] = ((enc_b(
+                8'h31,
+                5'd7,
+                5'd6,
+                14'h3FFE
+            )) >> 8);
+        dut.ram.memory_b2[28] = ((enc_b(
+                8'h31,
+                5'd7,
+                5'd6,
+                14'h3FFE
+            )) >> 16);
+        dut.ram.memory_b3[28] = ((enc_b(
+                8'h31,
+                5'd7,
+                5'd6,
+                14'h3FFE
+            )) >> 24);
 
-        dut.ram.memory[29] =
-            enc_n(8'hFF);
+        dut.ram.memory_b0[29] = (enc_n(8'hFF));
+        dut.ram.memory_b1[29] = ((enc_n(8'hFF)) >> 8);
+        dut.ram.memory_b2[29] = ((enc_n(8'hFF)) >> 16);
+        dut.ram.memory_b3[29] = ((enc_n(8'hFF)) >> 24);
 
         // Let reset-driven nonblocking assignments settle.
         repeat (3) @(posedge clk);

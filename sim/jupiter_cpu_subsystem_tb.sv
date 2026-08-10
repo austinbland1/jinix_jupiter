@@ -43,7 +43,10 @@ module jupiter_cpu_subsystem_tb;
 
         // M3 simulation infrastructure may preload internal test RAM.
         // 0xFF000000 = HALT according to docs/ISA_SPEC.md.
-        dut.ram.memory[0] = 32'hFF000000;
+        dut.ram.memory_b0[0] = (32'hFF000000);
+        dut.ram.memory_b1[0] = ((32'hFF000000) >> 8);
+        dut.ram.memory_b2[0] = ((32'hFF000000) >> 16);
+        dut.ram.memory_b3[0] = ((32'hFF000000) >> 24);
 
         repeat (3) @(posedge clk);
         #1;

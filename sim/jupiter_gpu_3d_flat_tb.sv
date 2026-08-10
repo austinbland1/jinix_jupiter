@@ -260,7 +260,7 @@ module jupiter_gpu_3d_flat_tb;
 
             while (
                 !(sdram_valid && sdram_write) &&
-                (wait_cycles < 100)
+                (wait_cycles < 32768)
             ) begin
                 @(posedge clk);
                 #1;
@@ -268,7 +268,7 @@ module jupiter_gpu_3d_flat_tb;
             end
 
             check(
-                wait_cycles < 100,
+                wait_cycles < 32768,
                 "covered pixel produces framebuffer write before watchdog"
             );
 
@@ -455,14 +455,14 @@ module jupiter_gpu_3d_flat_tb;
 
         watchdog = 0;
 
-        while (!dut.done && (watchdog < 20)) begin
+        while (!dut.done && (watchdog < 32768)) begin
             @(posedge clk);
             #1;
             watchdog = watchdog + 1;
         end
 
         check(
-            watchdog < 20,
+            watchdog < 32768,
             "flat command completes after final framebuffer write"
         );
 

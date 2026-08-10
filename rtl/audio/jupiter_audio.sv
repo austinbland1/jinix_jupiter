@@ -44,7 +44,14 @@ module jupiter_audio
     //
     // Sample RAM is intentionally not reset.
     reg [11:0] sample_addr_reg;
-    reg signed [15:0] sample_ram [0:4095];
+    // Hardware bring-up candidate:
+    // split byte lanes allow Cyclone V MLAB inference while preserving
+    // the existing shared asynchronous read port.
+    (* ramstyle = "MLAB, no_rw_check" *)
+    reg [7:0] sample_ram_lo [0:4095];
+
+    (* ramstyle = "MLAB, no_rw_check" *)
+    reg [7:0] sample_ram_hi [0:4095];
 
 
     // ------------------------------------------------------------
@@ -188,7 +195,12 @@ module jupiter_audio
         : sample_addr_reg;
 
     wire signed [15:0] sample_ram_read_data =
-        sample_ram[sample_ram_read_addr];
+        $signed(
+            {
+                sample_ram_hi[sample_ram_read_addr],
+                sample_ram_lo[sample_ram_read_addr]
+            }
+        );
 
 
     // ------------------------------------------------------------
@@ -739,16 +751,10 @@ module jupiter_audio
                     REG_SAMPLE_DATA: begin
 
                         if (wstrb[0])
-                            sample_ram[
-                                sample_addr_reg
-                            ][7:0] <=
-                                wdata[7:0];
+                            sample_ram_lo[sample_addr_reg] <= wdata[7:0];
 
                         if (wstrb[1])
-                            sample_ram[
-                                sample_addr_reg
-                            ][15:8] <=
-                                wdata[15:8];
+                            sample_ram_hi[sample_addr_reg] <= wdata[15:8];
 
                     end
 

@@ -1060,7 +1060,7 @@ module jupiter_audio_mixer_tb;
         );
 
         check(
-            dut.sample_ram[500] == 16'd1234,
+            ({dut.sample_ram_hi[500], dut.sample_ram_lo[500]}) == 16'd1234,
             "stalled SAMPLE_DATA write does not mutate RAM prematurely"
         );
 
@@ -1091,7 +1091,7 @@ module jupiter_audio_mixer_tb;
         );
 
         check(
-            dut.sample_ram[500] == 16'd1234,
+            ({dut.sample_ram_hi[500], dut.sample_ram_lo[500]}) == 16'd1234,
             "RAM remains unchanged until a ready clock edge accepts the write"
         );
 
@@ -1102,7 +1102,7 @@ module jupiter_audio_mixer_tb;
 
 
         check(
-            dut.sample_ram[500] == 16'd4321,
+            ({dut.sample_ram_hi[500], dut.sample_ram_lo[500]}) == 16'd4321,
             "previously stalled SAMPLE_DATA write commits after RAM release"
         );
 
@@ -1117,7 +1117,7 @@ module jupiter_audio_mixer_tb;
 
 
         check(
-            dut.sample_ram[600] == 16'h55AA,
+            ({dut.sample_ram_hi[600], dut.sample_ram_lo[600]}) == 16'h55AA,
             "mixing and collision handling preserve unrelated sample RAM"
         );
 

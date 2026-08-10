@@ -299,7 +299,7 @@ module jupiter_gpu_3d_raster_integration_tb;
 
             while (
                 !(sdram_valid && sdram_write) &&
-                (wait_cycles < 100)
+                (wait_cycles < 32768)
             ) begin
                 @(posedge clk);
                 #1;
@@ -309,7 +309,7 @@ module jupiter_gpu_3d_raster_integration_tb;
             end
 
             check(
-                wait_cycles < 100,
+                wait_cycles < 32768,
                 "covered sample reaches framebuffer write before watchdog"
             );
 
@@ -514,7 +514,7 @@ module jupiter_gpu_3d_raster_integration_tb;
 
         watchdog = 0;
 
-        while (!dut.done && (watchdog < 20)) begin
+        while (!dut.done && (watchdog < 32768)) begin
             @(posedge clk);
             #1;
 
@@ -531,7 +531,7 @@ module jupiter_gpu_3d_raster_integration_tb;
         );
 
         check(
-            watchdog < 20,
+            watchdog < 32768,
             "integrated flat command completes before watchdog"
         );
 

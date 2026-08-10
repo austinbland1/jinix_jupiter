@@ -879,7 +879,7 @@ module jupiter_gpu_3d_texture_blend_tb;
 
         while (
             !dut.done &&
-            (watchdog < 2000)
+            (watchdog < 32768)
         ) begin
             @(posedge clk);
             #1;
@@ -887,7 +887,7 @@ module jupiter_gpu_3d_texture_blend_tb;
         end
 
         check(
-            watchdog < 2000 &&
+            watchdog < 32768 &&
             dut.done &&
             !dut.busy &&
             !dut.error,

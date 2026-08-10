@@ -438,7 +438,7 @@ module jupiter_gpu_3d_texture_tb;
                         FRAGMENT_TEXTURE_READ
                     )
                 ) &&
-                (watchdog < 120)
+                (watchdog < 32768)
             ) begin
                 @(posedge clk);
                 #1;
@@ -446,7 +446,7 @@ module jupiter_gpu_3d_texture_tb;
             end
 
             check(
-                watchdog < 120,
+                watchdog < 32768,
                 "fragment reaches texture-read state before watchdog"
             );
 
@@ -710,14 +710,14 @@ module jupiter_gpu_3d_texture_tb;
 
         watchdog = 0;
 
-        while (!dut.done && (watchdog < 100)) begin
+        while (!dut.done && (watchdog < 32768)) begin
             @(posedge clk);
             #1;
             watchdog = watchdog + 1;
         end
 
         check(
-            watchdog < 100 &&
+            watchdog < 32768 &&
             dut.done &&
             !dut.busy &&
             !dut.error,

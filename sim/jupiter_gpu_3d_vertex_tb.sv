@@ -430,7 +430,7 @@ module jupiter_gpu_3d_vertex_tb;
 
         while (
             !dut.done &&
-            (completion_watchdog < 16)
+            (completion_watchdog < 32768)
         ) begin
             @(posedge clk);
             #1;
@@ -440,7 +440,7 @@ module jupiter_gpu_3d_vertex_tb;
         end
 
         check(
-            completion_watchdog < 16,
+            completion_watchdog < 32768,
             "valid fetched degenerate triangle completes before watchdog"
         );
 

@@ -58,6 +58,10 @@ module jupiter_boot_image_tb;
         end
     end
 
+    // Compatibility storage for split-byte implementation RAM.
+    reg [31:0] boot_image_words [0:1023];
+    integer boot_image_index;
+
     initial begin
         clk = 1'b0;
         reset = 1'b1;
@@ -76,24 +80,45 @@ module jupiter_boot_image_tb;
         // Selected M9 simulation-loading mechanism:
         // load the host-generated image into the existing internal RAM
         // before releasing CPU reset. Synthesizable RAM RTL is unchanged.
-        $readmemh(image_path, dut.ram.memory);
+        $readmemh(
+            image_path,
+            boot_image_words
+        );
+
+        for (
+            boot_image_index = 0;
+            boot_image_index < 1024;
+            boot_image_index = boot_image_index + 1
+        ) begin
+            dut.ram.memory_b0[boot_image_index] =
+                boot_image_words[boot_image_index][7:0];
+
+            dut.ram.memory_b1[boot_image_index] =
+                boot_image_words[boot_image_index][15:8];
+
+            dut.ram.memory_b2[boot_image_index] =
+                boot_image_words[boot_image_index][23:16];
+
+            dut.ram.memory_b3[boot_image_index] =
+                boot_image_words[boot_image_index][31:24];
+        end
         #1;
 
-        check(dut.ram.memory[0] == 32'h320000FF,
+        check(({dut.ram.memory_b3[0], dut.ram.memory_b2[0], dut.ram.memory_b1[0], dut.ram.memory_b0[0]}) == 32'h320000FF,
               "generated BIOS J instruction is loaded at reset vector");
-        check(dut.ram.memory[1] == 32'h00000000,
+        check(({dut.ram.memory_b3[1], dut.ram.memory_b2[1], dut.ram.memory_b1[1], dut.ram.memory_b0[1]}) == 32'h00000000,
               "unused BIOS word is zero-filled");
-        check(dut.ram.memory[255] == 32'h00000000,
+        check(({dut.ram.memory_b3[255], dut.ram.memory_b2[255], dut.ram.memory_b1[255], dut.ram.memory_b0[255]}) == 32'h00000000,
               "last BIOS-region padding word is zero");
-        check(dut.ram.memory[256] == 32'h10081000,
+        check(({dut.ram.memory_b3[256], dut.ram.memory_b2[256], dut.ram.memory_b1[256], dut.ram.memory_b0[256]}) == 32'h10081000,
               "application begins at 0x00000400");
-        check(dut.ram.memory[257] == 32'h1010002A,
+        check(({dut.ram.memory_b3[257], dut.ram.memory_b2[257], dut.ram.memory_b1[257], dut.ram.memory_b0[257]}) == 32'h1010002A,
               "application immediate instruction matches assembler output");
-        check(dut.ram.memory[258] == 32'h21104000,
+        check(({dut.ram.memory_b3[258], dut.ram.memory_b2[258], dut.ram.memory_b1[258], dut.ram.memory_b0[258]}) == 32'h21104000,
               "application store instruction matches assembler output");
-        check(dut.ram.memory[259] == 32'hFF000000,
+        check(({dut.ram.memory_b3[259], dut.ram.memory_b2[259], dut.ram.memory_b1[259], dut.ram.memory_b0[259]}) == 32'hFF000000,
               "application HALT is loaded at 0x0000040C");
-        check(dut.ram.memory[1023] == 32'h00000000,
+        check(({dut.ram.memory_b3[1023], dut.ram.memory_b2[1023], dut.ram.memory_b1[1023], dut.ram.memory_b0[1023]}) == 32'h00000000,
               "final system-image word is zero-filled");
 
         repeat (3) @(posedge clk);

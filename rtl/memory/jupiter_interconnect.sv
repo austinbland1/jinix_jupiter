@@ -100,45 +100,43 @@ localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
 
     wire aligned = (m_addr[1:0] == 2'b00);
 
+    // Hardware bring-up candidate:
+    // decode the fixed power-of-two address windows directly instead of
+    // synthesizing full 32-bit lower/upper-bound comparators.
     wire ram_selected =
         m_valid &&
         aligned &&
-        (m_addr >= RAM_START) &&
-        (m_addr <= RAM_END);
+        (m_addr[31:12] == 20'h00000);
 
     wire mmio_selected =
         m_valid &&
         aligned &&
-        (m_addr >= MMIO_START) &&
-        (m_addr <= MMIO_END);
+        (m_addr[31:2] == 30'h00000400);
 
     wire gpu_selected =
         m_valid &&
         aligned &&
-        (m_addr >= GPU_START) &&
-        (m_addr <= GPU_END);    wire dma_selected =
+        (m_addr[31:8] == 24'h000011);
+
+    wire dma_selected =
         m_valid &&
         aligned &&
-        (m_addr >= DMA_START) &&
-        (m_addr <= DMA_END);
+        (m_addr[31:8] == 24'h000012);
 
     wire audio_selected =
         m_valid &&
         aligned &&
-        (m_addr >= AUDIO_START) &&
-        (m_addr <= AUDIO_END);
+        (m_addr[31:8] == 24'h000013);
 
     wire controller_selected =
         m_valid &&
         aligned &&
-        (m_addr >= CONTROLLER_START) &&
-        (m_addr <= CONTROLLER_END);
+        (m_addr[31:8] == 24'h000014);
 
     wire sdram_selected =
-m_valid &&
+        m_valid &&
         aligned &&
-        (m_addr >= SDRAM_START) &&
-        (m_addr <= SDRAM_END);
+        (m_addr[31:27] == 5'b00010);
 
     // Requests retain their full system address at each target boundary.
     assign ram_valid = ram_selected;

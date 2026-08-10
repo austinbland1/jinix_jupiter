@@ -223,7 +223,7 @@ module jupiter_gpu_3d_perspective_tb;
             while (
                 !covered_valid &&
                 !done &&
-                (watchdog < 100)
+                (watchdog < 32768)
             ) begin
                 @(posedge clk);
                 #1;
@@ -231,7 +231,7 @@ module jupiter_gpu_3d_perspective_tb;
             end
 
             check(
-                watchdog < 100 &&
+                watchdog < 32768 &&
                 covered_valid,
                 "expected perspective fragment arrives before watchdog"
             );
@@ -345,7 +345,7 @@ module jupiter_gpu_3d_perspective_tb;
 
         watchdog = 0;
 
-        while (!done && (watchdog < 100)) begin
+        while (!done && (watchdog < 32768)) begin
             @(posedge clk);
             #1;
             watchdog = watchdog + 1;

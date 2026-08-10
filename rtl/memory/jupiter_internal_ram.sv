@@ -18,7 +18,20 @@ module jupiter_internal_ram
     // Address decoding is performed by jupiter_interconnect. This target
     // therefore receives only aligned addresses in 0x00000000-0x00000FFF
     // during normal system operation.
-    reg [31:0] memory [0:1023];
+    // Hardware bring-up candidate:
+    // split byte lanes allow Cyclone V MLAB inference while preserving
+    // the existing asynchronous read and byte-strobe semantics.
+    (* ramstyle = "MLAB, no_rw_check" *)
+    reg [7:0] memory_b0 [0:1023];
+
+    (* ramstyle = "MLAB, no_rw_check" *)
+    reg [7:0] memory_b1 [0:1023];
+
+    (* ramstyle = "MLAB, no_rw_check" *)
+    reg [7:0] memory_b2 [0:1023];
+
+    (* ramstyle = "MLAB, no_rw_check" *)
+    reg [7:0] memory_b3 [0:1023];
 
     wire [9:0] word_index = addr[11:2];
 
@@ -32,22 +45,27 @@ module jupiter_internal_ram
     // transaction; idle and write cycles return deterministic zero here.
     assign rdata =
         (valid && !write)
-        ? memory[word_index]
+        ? {
+            memory_b3[word_index],
+            memory_b2[word_index],
+            memory_b1[word_index],
+            memory_b0[word_index]
+        }
         : 32'h00000000;
 
     always @(posedge clk) begin
         if (valid && write) begin
             if (wstrb[0])
-                memory[word_index][7:0] <= wdata[7:0];
+                memory_b0[word_index] <= wdata[7:0];
 
             if (wstrb[1])
-                memory[word_index][15:8] <= wdata[15:8];
+                memory_b1[word_index] <= wdata[15:8];
 
             if (wstrb[2])
-                memory[word_index][23:16] <= wdata[23:16];
+                memory_b2[word_index] <= wdata[23:16];
 
             if (wstrb[3])
-                memory[word_index][31:24] <= wdata[31:24];
+                memory_b3[word_index] <= wdata[31:24];
         end
     end
 

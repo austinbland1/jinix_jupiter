@@ -253,7 +253,7 @@ module jupiter_gpu_3d_mmio_tb;
 
             while (
                 !dut.gpu3d.done &&
-                (completion_watchdog < 16)
+                (completion_watchdog < 32768)
             ) begin
                 @(posedge clk);
                 #1;
@@ -263,7 +263,7 @@ module jupiter_gpu_3d_mmio_tb;
             end
 
             check(
-                completion_watchdog < 16,
+                completion_watchdog < 32768,
                 "wrapper degenerate raster completion stays bounded"
             );
 

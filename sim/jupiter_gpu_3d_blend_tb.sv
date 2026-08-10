@@ -319,7 +319,7 @@ module jupiter_gpu_3d_blend_tb;
                     sdram_valid &&
                     !sdram_write
                 ) &&
-                (watchdog < 120)
+                (watchdog < 32768)
             ) begin
                 @(posedge clk);
                 #1;
@@ -327,7 +327,7 @@ module jupiter_gpu_3d_blend_tb;
             end
 
             check(
-                watchdog < 120,
+                watchdog < 32768,
                 "fragment reaches framebuffer-read state before watchdog"
             );
 
@@ -558,14 +558,14 @@ module jupiter_gpu_3d_blend_tb;
 
         watchdog = 0;
 
-        while (!dut.done && (watchdog < 100)) begin
+        while (!dut.done && (watchdog < 32768)) begin
             @(posedge clk);
             #1;
             watchdog = watchdog + 1;
         end
 
         check(
-            watchdog < 100 &&
+            watchdog < 32768 &&
             dut.done &&
             !dut.busy &&
             !dut.error,

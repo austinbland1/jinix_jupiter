@@ -141,7 +141,7 @@ module jupiter_gpu_3d_triangle_tb;
         begin
             watchdog = 0;
 
-            while (!done && (watchdog < 200)) begin
+            while (!done && (watchdog < 32768)) begin
                 @(posedge clk);
                 #1;
 

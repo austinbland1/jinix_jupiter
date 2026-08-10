@@ -314,7 +314,7 @@ module jupiter_audio_tb;
 
 
         check(
-            dut.sample_ram[12'hA23] == 16'hAB34,
+            ({dut.sample_ram_hi[12'hA23], dut.sample_ram_lo[12'hA23]}) == 16'hAB34,
             "PCM sample RAM stores selected sample"
         );
 

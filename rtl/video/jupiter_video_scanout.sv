@@ -65,7 +65,10 @@ module jupiter_video_scanout
 
     // Two 320-pixel RGB565 line buffers. A buffer becomes visible only after
     // every word for its tagged source line has completed.
+    (* ramstyle = "MLAB, no_rw_check" *)
     reg [15:0] line_buffer_0 [0:319];
+
+    (* ramstyle = "MLAB, no_rw_check" *)
     reg [15:0] line_buffer_1 [0:319];
 
     reg        buffer_0_valid;

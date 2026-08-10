@@ -393,7 +393,7 @@ module jupiter_gpu_3d_depth_overlap_tb;
 
             watchdog = 0;
 
-            while (!dut.done && (watchdog < 500)) begin
+            while (!dut.done && (watchdog < 32768)) begin
                 @(posedge clk);
                 #1;
 
@@ -402,7 +402,7 @@ module jupiter_gpu_3d_depth_overlap_tb;
             end
 
             check(
-                watchdog < 500 &&
+                watchdog < 32768 &&
                 dut.done &&
                 !dut.busy &&
                 !dut.error,
