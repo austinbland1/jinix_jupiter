@@ -45,7 +45,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
 
-.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test \
+.PHONY: test m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test \
 	core-test system-test stub-test \
 	cpu-state-test cpu-fetch-test cpu-basic-exec-test cpu-alu-test \
 	cpu-memory-test cpu-control-test cpu-program-test \
@@ -55,12 +55,13 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test cpu-dma-mmio-test \
 	audio-regs-test audio-playback-test audio-mixer-test interconnect-audio-test cpu-audio-mmio-test audio-topology-test \
 	controller-regs-test interconnect-controller-test cpu-controller-mmio-test controller-topology-test \
+	assembler-test image-builder-test \
 	sdram-arbiter-test shared-sdram-test dma-sdram-path-test gpu-sdram-render-test \
 	gpu-sdram-contention-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test
+test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test
 
 m1-test: core-test system-test stub-test
 
@@ -95,11 +96,19 @@ m7b-test: audio-regs-test audio-playback-test audio-mixer-test interconnect-audi
 m7c-test: system-test audio-topology-test
 m8b-test: controller-regs-test interconnect-controller-test cpu-controller-mmio-test interconnect-test interconnect-audio-test system-test controller-topology-test
 
+m9b-test: assembler-test image-builder-test
+
 audio-topology-test:
 	python3 check_m7c_audio_topology.py
 
 controller-topology-test:
 	python3 check_m8b2_controller_topology.py
+
+assembler-test:
+	python3 -B ../software/devkit/test_jupiter_asm.py
+
+image-builder-test:
+	python3 -B ../software/tools/test_build_system_image.py
 
 audio-regs-test:
 	iverilog -g2012 -s jupiter_audio_tb -o jupiter_audio.vvp $(AUDIO_RTL) jupiter_audio_tb.sv

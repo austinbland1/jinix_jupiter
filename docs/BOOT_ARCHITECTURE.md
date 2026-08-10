@@ -258,12 +258,17 @@ This document and related architecture status updates.
 
 ### M9B — Minimum host tools
 
-Implement:
+Implemented and verified:
 
-- the two-pass Jupiter assembler;
-- deterministic assembler tests;
-- the 1024-word system-image builder;
-- deterministic image-builder tests.
+- `software/devkit/jupiter_asm.py`: complete Milestone 2 two-pass assembler;
+- symbolic labels with documented `PC + 4` word-relative control flow;
+- signed 14-bit immediate/branch and signed 24-bit jump validation;
+- deterministic flat eight-hex-digit-per-word output;
+- `software/tools/build_system_image.py`: deterministic 1024-word image builder;
+- BIOS/application size, alignment, bounds, overlap, and input validation;
+- automated tests through `make -C sim m9b-test` and the full regression.
+
+See `docs/HOST_TOOLS.md`.
 
 ### M9C — BIOS and boot-image integration
 
