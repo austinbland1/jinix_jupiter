@@ -50,6 +50,36 @@ module jupiter_gpu_2d
     reg busy;
     reg done;
 
+    // M10 GPU-internal integration.
+    //
+    // The subsystem-visible jupiter_gpu_2d module remains the single GPU
+    // target and the single external GPU SDRAM master. The new 3D child
+    // occupies only its selected MMIO subrange and shares SDRAM through the
+    // internal two-way arbiter.
+    wire gpu3d_mmio_selected =
+        valid &&
+        (addr >= 32'h00001140) &&
+        (addr <= 32'h0000117F);
+
+    wire [31:0] gpu3d_mmio_rdata;
+    wire        gpu3d_mmio_ready;
+
+    wire        gpu2d_sdram_valid;
+    wire        gpu2d_sdram_write;
+    wire [31:0] gpu2d_sdram_addr;
+    wire [31:0] gpu2d_sdram_wdata;
+    wire  [3:0] gpu2d_sdram_wstrb;
+    wire [31:0] gpu2d_sdram_rdata;
+    wire        gpu2d_sdram_ready;
+
+    wire        gpu3d_sdram_valid;
+    wire        gpu3d_sdram_write;
+    wire [31:0] gpu3d_sdram_addr;
+    wire [31:0] gpu3d_sdram_wdata;
+    wire  [3:0] gpu3d_sdram_wstrb;
+    wire [31:0] gpu3d_sdram_rdata;
+    wire        gpu3d_sdram_ready;
+
     // Renderer sequencing state.
     //
     // M5D-1 through M5D-4 established the complete per-tile path from
@@ -141,20 +171,23 @@ module jupiter_gpu_2d
     end
 
     // This first GPU MMIO target inserts no wait states.
-    assign ready = valid;
+    assign ready =
+        gpu3d_mmio_selected ?
+        gpu3d_mmio_ready :
+        valid;
 
     // Graphics-memory transactions remain selected until completion.
     // Tilemap and tile-data transactions are read-only; framebuffer traffic
     // is the renderer's only write path.
-    assign sdram_valid =
+    assign gpu2d_sdram_valid =
         (renderer_state == RENDER_TILEMAP_WAIT) ||
         (renderer_state == RENDER_TILE_DATA_WAIT) ||
         (renderer_state == RENDER_FRAMEBUFFER_WAIT);
 
-    assign sdram_write =
+    assign gpu2d_sdram_write =
         (renderer_state == RENDER_FRAMEBUFFER_WAIT);
 
-    assign sdram_addr =
+    assign gpu2d_sdram_addr =
         (renderer_state == RENDER_TILEMAP_WAIT) ?
             tilemap_request_addr :
         (renderer_state == RENDER_TILE_DATA_WAIT) ?
@@ -163,22 +196,77 @@ module jupiter_gpu_2d
             framebuffer_request_addr :
             32'h00000000;
 
-    assign sdram_wdata =
+    assign gpu2d_sdram_wdata =
         (renderer_state == RENDER_FRAMEBUFFER_WAIT) ?
             framebuffer_request_data :
             32'h00000000;
 
-    assign sdram_wstrb =
+    assign gpu2d_sdram_wstrb =
         (renderer_state == RENDER_FRAMEBUFFER_WAIT) ?
             4'b1111 :
             4'b0000;
+
+    jupiter_gpu_3d gpu3d
+    (
+        .clk         (clk),
+        .reset       (reset),
+
+        .valid       (gpu3d_mmio_selected),
+        .write       (write),
+        .addr        (addr),
+        .wdata       (wdata),
+        .wstrb       (wstrb),
+
+        .rdata       (gpu3d_mmio_rdata),
+        .ready       (gpu3d_mmio_ready),
+
+        .sdram_valid (gpu3d_sdram_valid),
+        .sdram_write (gpu3d_sdram_write),
+        .sdram_addr  (gpu3d_sdram_addr),
+        .sdram_wdata (gpu3d_sdram_wdata),
+        .sdram_wstrb (gpu3d_sdram_wstrb),
+        .sdram_rdata (gpu3d_sdram_rdata),
+        .sdram_ready (gpu3d_sdram_ready)
+    );
+
+    jupiter_gpu_2d3d_arbiter gpu_sdram_arbiter
+    (
+        .clk          (clk),
+        .reset        (reset),
+
+        .gpu2d_valid  (gpu2d_sdram_valid),
+        .gpu2d_write  (gpu2d_sdram_write),
+        .gpu2d_addr   (gpu2d_sdram_addr),
+        .gpu2d_wdata  (gpu2d_sdram_wdata),
+        .gpu2d_wstrb  (gpu2d_sdram_wstrb),
+        .gpu2d_rdata  (gpu2d_sdram_rdata),
+        .gpu2d_ready  (gpu2d_sdram_ready),
+
+        .gpu3d_valid  (gpu3d_sdram_valid),
+        .gpu3d_write  (gpu3d_sdram_write),
+        .gpu3d_addr   (gpu3d_sdram_addr),
+        .gpu3d_wdata  (gpu3d_sdram_wdata),
+        .gpu3d_wstrb  (gpu3d_sdram_wstrb),
+        .gpu3d_rdata  (gpu3d_sdram_rdata),
+        .gpu3d_ready  (gpu3d_sdram_ready),
+
+        .sdram_valid  (sdram_valid),
+        .sdram_write  (sdram_write),
+        .sdram_addr   (sdram_addr),
+        .sdram_wdata  (sdram_wdata),
+        .sdram_wstrb  (sdram_wstrb),
+        .sdram_rdata  (sdram_rdata),
+        .sdram_ready  (sdram_ready)
+    );
 
     // Reads are deterministic. CONTROL is write-only and therefore reads
     // as zero. Reserved/unimplemented offsets also read as zero.
     always @(*) begin
         rdata = 32'h00000000;
 
-        if (valid && !write) begin
+        if (gpu3d_mmio_selected && !write) begin
+            rdata = gpu3d_mmio_rdata;
+        end else if (valid && !write) begin
             case (addr)
                 REG_STATUS:
                     rdata = {30'd0, done, busy};
@@ -232,8 +320,8 @@ module jupiter_gpu_2d
             // required because live configuration registers remain writable
             // while a render is active.
             if ((renderer_state == RENDER_TILEMAP_WAIT) &&
-                sdram_ready) begin
-                current_tile_index <= sdram_rdata[15:0];
+                gpu2d_sdram_ready) begin
+                current_tile_index <= gpu2d_sdram_rdata[15:0];
                 renderer_state <= RENDER_TILE_DATA_PENDING;
             end else if (renderer_state == RENDER_TILE_DATA_PENDING) begin
                 // Keep one transaction-free boundary between the tilemap
@@ -242,19 +330,19 @@ module jupiter_gpu_2d
                 tile_word <= 2'd0;
                 renderer_state <= RENDER_TILE_DATA_WAIT;
             end else if ((renderer_state == RENDER_TILE_DATA_WAIT) &&
-                         sdram_ready) begin
+                         gpu2d_sdram_ready) begin
                 case (tile_word)
                     2'd0:
-                        tile_row_word0 <= sdram_rdata;
+                        tile_row_word0 <= gpu2d_sdram_rdata;
 
                     2'd1:
-                        tile_row_word1 <= sdram_rdata;
+                        tile_row_word1 <= gpu2d_sdram_rdata;
 
                     2'd2:
-                        tile_row_word2 <= sdram_rdata;
+                        tile_row_word2 <= gpu2d_sdram_rdata;
 
                     2'd3:
-                        tile_row_word3 <= sdram_rdata;
+                        tile_row_word3 <= gpu2d_sdram_rdata;
                 endcase
 
                 if (tile_word == 2'd3) begin
@@ -268,7 +356,7 @@ module jupiter_gpu_2d
                 tile_word <= 2'd0;
                 renderer_state <= RENDER_FRAMEBUFFER_WAIT;
             end else if ((renderer_state == RENDER_FRAMEBUFFER_WAIT) &&
-                         sdram_ready) begin
+                         gpu2d_sdram_ready) begin
                 if (tile_word == 2'd3) begin
                     renderer_state <= RENDER_ROW_WRITTEN;
                 end else begin

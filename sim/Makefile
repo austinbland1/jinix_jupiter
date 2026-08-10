@@ -23,7 +23,9 @@ CPU_RTL = ../rtl/cpu/jupiter_cpu.sv
 INTERCONNECT_RTL = ../rtl/memory/jupiter_interconnect.sv
 INTERNAL_RAM_RTL = ../rtl/memory/jupiter_internal_ram.sv
 MMIO_SCRATCH_RTL = ../rtl/peripherals/jupiter_mmio_scratch.sv
-GPU_2D_RTL = ../rtl/gpu/jupiter_gpu_2d.sv
+GPU_2D3D_ARBITER_RTL = ../rtl/gpu/jupiter_gpu_2d3d_arbiter.sv
+GPU_3D_RTL = ../rtl/gpu/jupiter_gpu_3d.sv
+GPU_2D_RTL = $(GPU_2D3D_ARBITER_RTL) $(GPU_3D_RTL) ../rtl/gpu/jupiter_gpu_2d.sv
 DMA_RTL = ../rtl/dma/jupiter_dma.sv
 AUDIO_RTL = ../rtl/audio/jupiter_audio.sv
 CONTROLLER_RTL = ../rtl/peripherals/jupiter_controllers.sv
@@ -61,7 +63,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test m9c-test
+test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test m9c-test m10b1-test
 
 m1-test: core-test system-test stub-test
 
@@ -74,6 +76,10 @@ m3-test: interconnect-test internal-ram-test mmio-scratch-test \
 m4-test: interconnect-test cpu-subsystem-test system-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test
+
+.PHONY: m10b1-test gpu-3d-test gpu-2d3d-arbiter-test gpu-3d-mmio-test
+
+m10b1-test: gpu-3d-test gpu-2d3d-arbiter-test gpu-3d-mmio-test
 
 m5b-test: gpu-regs-test cpu-gpu-mmio-test
 
@@ -304,7 +310,20 @@ three-master-contention-test:
 	iverilog -g2012 -s jupiter_three_master_contention_tb -o jupiter_three_master_contention.vvp $(CPU_SUBSYSTEM_RTL) $(SDRAM_MODEL) jupiter_three_master_contention_tb.sv
 	vvp -n jupiter_three_master_contention.vvp
 
+gpu-3d-test:
+	iverilog -g2012 -s jupiter_gpu_3d_tb -o jupiter_gpu_3d.vvp $(GPU_3D_RTL) jupiter_gpu_3d_tb.sv
+	vvp -n jupiter_gpu_3d.vvp
+
+gpu-2d3d-arbiter-test:
+	iverilog -g2012 -s jupiter_gpu_2d3d_arbiter_tb -o jupiter_gpu_2d3d_arbiter.vvp $(GPU_2D3D_ARBITER_RTL) jupiter_gpu_2d3d_arbiter_tb.sv
+	vvp -n jupiter_gpu_2d3d_arbiter.vvp
+
+gpu-3d-mmio-test:
+	iverilog -g2012 -s jupiter_gpu_3d_mmio_tb -o jupiter_gpu_3d_mmio.vvp $(GPU_2D_RTL) jupiter_gpu_3d_mmio_tb.sv
+	vvp -n jupiter_gpu_3d_mmio.vvp
+
 clean:
+	rm -f jupiter_gpu_3d.vvp jupiter_gpu_2d3d_arbiter.vvp jupiter_gpu_3d_mmio.vvp
 	rm -f m9c_bios.hex m9c_program.hex m9c_system.mem jupiter_boot_image.vvp
 	rm -f jupiter_controllers.vvp jupiter_interconnect_controller.vvp jupiter_cpu_controller_mmio.vvp
 	rm -f jupiter_core.vvp jupiter_system.vvp jupiter_stubs.vvp \
