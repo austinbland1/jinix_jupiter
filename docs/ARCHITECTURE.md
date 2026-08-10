@@ -314,20 +314,50 @@ The complete selected contract is documented in
 
 ### BIOS ROM — Boot Firmware
 
-Boot firmware / BIOS is a Jinix Jupiter design target.
-Jinix Jupiter is a new fantasy console and does not reproduce firmware from an existing historical machine.
+Boot firmware / BIOS is original Jinix Jupiter software.
 
-- Firmware storage, loading method, in-memory location, boot protocol, and update mechanism remain TBD.
-- It is not assumed that the firmware must be synthesized into block RAM or distributed RAM.
-- No particular file format for firmware content is assumed at this time.
-- `software/bios/` is the intended source directory for Jupiter boot-firmware development.
+M9A selects the initial boot mechanism:
+
+- CPU reset execution begins at `0x00000000`, matching the existing CPU reset
+  vector and internal-RAM aperture.
+- The initial Milestone 9 boot image uses the existing 4 KiB internal RAM
+  rather than adding a new ROM or MMIO target.
+- `0x00000000–0x000003FF` is the initial 1 KiB BIOS region.
+- `0x00000400–0x00000FFF` is the initial 3 KiB application region.
+- BIOS execution begins at `0x00000000`.
+- The initial application entry point is `0x00000400`.
+- Host tooling generates one complete 1024-word RAM image before simulation.
+- That generated image initializes internal RAM before reset is released.
+
+This build-time mechanism is the minimum Milestone 9 path. Runtime firmware
+replacement, removable-media semantics, HPS firmware loading, and
+physical-hardware validation remain deferred.
+
+See `docs/BOOT_ARCHITECTURE.md` for the normative M9 boot contract.
 
 ### Development Tools
 
-Host-side development tools are a Jinix Jupiter design target, intended under `software/devkit/` and `software/tools/`.
+M9A selects a minimal host toolchain under `software/devkit/` and
+`software/tools/`.
 
-- A future custom assembler, linker, compiler support, asset-conversion tools, debugger support, and graphics/audio asset tools may be listed as development goals.
-- Exact CPU ISA, the target object format, the executable format, the debugging protocol, and implementation of each tool all remain TBD.
+The first devkit consists of:
+
+- a dependency-light Python 3 two-pass assembler using `docs/ISA_SPEC.md` as
+  the normative ISA source;
+- flat textual 32-bit instruction-word output with no relocatable object
+  format;
+- symbolic labels and deterministic PC-relative branch/jump resolution;
+- deterministic diagnostics for malformed syntax, invalid registers,
+  out-of-range immediates/displacements, duplicate labels, unknown labels,
+  unknown mnemonics, and other invalid source;
+- a deterministic system-image builder that places BIOS words at
+  `0x00000000`, application words at `0x00000400`, zero-fills unused words,
+  and emits exactly 1024 words for the initial internal-RAM image.
+
+A C compiler, relocatable linker, runtime library, debugger transport, and
+general asset pipeline remain outside the minimum Milestone 9 scope.
+
+See `docs/BOOT_ARCHITECTURE.md` for the complete selected host-tool contract.
 
 ### Optional HPS-Assisted Services
 
@@ -426,11 +456,11 @@ are treated as current architecture; only their future extensions remain open.
 
 ### BIOS / Boot Process
 
-- Firmware storage, loading method, in-memory location, boot protocol, and update mechanism for Jupiter custom boot firmware remain TBD.
+- M9A selects the initial build-time internal-RAM image, memory layout, and entry protocol; runtime firmware update remains deferred.
 
 ### Development Tools
 
-- What host-side tools (assembler, linker, compiler support, debugger, asset converters, sprite/tile editors) will the devkit include? The exact toolchain architecture, object/executable formats, and debugging protocol all remain TBD.
+- M9A selects the minimum assembler plus system-image builder; richer compiler, debugger, linker, and asset-tool architecture remains deferred.
 
 ### HPS-Assisted Storage / Networking / Media Interfaces
 

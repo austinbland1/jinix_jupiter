@@ -4,9 +4,9 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
-> **Current branch:** `milestone-8`
-> **Current checkpoint:** Milestone 8 controllers and core peripherals are verified in simulation; Milestone 9 is next.
-> **Verified predecessor:** `m7-verified` = `1fbe70ed3168238b6b1576638f7be700ed65426d`
+> **Current branch:** `milestone-9`
+> **Current checkpoint:** M9A boot/firmware and minimum host-development-tool architecture is selected; implementation is next.
+> **Verified predecessor:** `m8-verified` = `3f9ede50e43e974b6980acbf4bd5eb47fcd4b95a`
 ---
 
 ## Project Status
@@ -22,7 +22,8 @@ Jupiter is **not an emulator of an existing console**. It is being designed as i
 | 6 | DMA and three-master SDRAM arbitration | **Verified — `m6-verified`** |
 | 7 | PCM audio | **Verified in simulation — `m7-verified`** |
 | 8 | Controllers and core peripherals | **Verified in simulation — `m8-verified`** |
-| 9+ | Firmware, devkit, 3D, HPS services, etc. | Not yet implemented |
+| 9 | BIOS and host development tools | **In progress — M9A architecture selected** |
+| 10+ | 3D, HPS services, later platform work | Not yet implemented |
 Milestones are developed incrementally with deterministic simulation coverage. Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.
 
 ---
@@ -313,23 +314,28 @@ The `milestone-7` branch starts directly from `m6-verified`.
 
 ## Current Next Step
 
-**Milestone 9 is next.**
+**M9B — implement the minimum assembler and system-image builder.**
 
-Milestone 8 is complete at the simulation-verification level.
+M9A selects a deliberately small initial software path:
 
-The verified initial controller/peripheral subsystem now provides:
+- Jupiter still resets at `0x00000000`;
+- the existing 4 KiB internal RAM is the initial M9 boot-image target;
+- `0x00000000–0x000003FF` is reserved for the minimum BIOS;
+- `0x00000400–0x00000FFF` is the initial application region;
+- the BIOS entry point is `0x00000000`;
+- the initial application entry point is `0x00000400`;
+- a build-generated 1024-word memory image initializes the complete 4 KiB
+  BIOS/application RAM image;
+- a dependency-light Python 3 two-pass assembler generates flat Jupiter
+  instruction-word streams from the Milestone 2 ISA;
+- a deterministic image builder combines BIOS and application streams and
+  rejects overlap, overflow, misalignment, or malformed input.
 
-- six raw 32-bit MiSTer digital controller words;
-- bit-for-bit production propagation from `hps_io` through Jupiter;
-- six deterministic CPU-visible read-only state registers;
-- controller MMIO at `0x00001400–0x000014FF`;
-- reserved-zero and ignored-write behavior;
-- no additional latch, event FIFO, interrupt, semantic remapping, or analog
-  interface in the selected initial design;
-- automated peripheral, interconnect, CPU-MMIO, wrapper, topology, and complete
-  repository regression coverage.
+This is the minimum Milestone 9 build/simulation path, not the final Jupiter
+runtime storage, cartridge, filesystem, removable-media, or HPS-loading
+architecture.
 
-The `m8-verified` tag identifies the accepted Milestone 8 simulation checkpoint.
+The normative selected contract is `docs/BOOT_ARCHITECTURE.md`.
 
 ---
 
