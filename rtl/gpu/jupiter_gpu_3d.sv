@@ -80,13 +80,17 @@ module jupiter_gpu_3d
     reg [4:0] vertex_word_index;
     reg [31:0] vertex_words [0:17];
 
-    localparam [2:0] FRAGMENT_IDLE        = 3'd0;
-    localparam [2:0] FRAGMENT_DEPTH_READ  = 3'd1;
-    localparam [2:0] FRAGMENT_DEPTH_WRITE = 3'd2;
-    localparam [2:0] FRAGMENT_FRAMEBUFFER = 3'd3;
-    localparam [2:0] FRAGMENT_REJECT      = 3'd4;
+    localparam [2:0] FRAGMENT_IDLE             = 3'd0;
+    localparam [2:0] FRAGMENT_DEPTH_READ       = 3'd1;
+    localparam [2:0] FRAGMENT_DEPTH_WRITE      = 3'd2;
+    localparam [2:0] FRAGMENT_FRAMEBUFFER      = 3'd3;
+    localparam [2:0] FRAGMENT_REJECT           = 3'd4;
+    localparam [2:0] FRAGMENT_TEXTURE_READ     = 3'd5;
+    localparam [2:0] FRAGMENT_FRAMEBUFFER_READ = 3'd6;
 
     reg [2:0] fragment_state;
+    reg [15:0] fragment_source_color;
+    reg [15:0] fragment_output_color;
 
     integer vertex_clear_index;
 
@@ -109,6 +113,13 @@ module jupiter_gpu_3d
     wire [15:0] raster_covered_x;
     wire [15:0] raster_covered_y;
     wire [15:0] raster_covered_z;
+
+    wire signed [31:0] raster_covered_u_over_w;
+    wire signed [31:0] raster_covered_v_over_w;
+    wire        [31:0] raster_covered_one_over_w;
+    wire signed [63:0] raster_covered_u_q16;
+    wire signed [63:0] raster_covered_v_q16;
+
     wire [31:0] raster_coverage_count;
     wire [31:0] raster_sample_count;
 
@@ -125,15 +136,102 @@ module jupiter_gpu_3d
     wire framebuffer_upper_half =
         framebuffer_pixel_index[0];
 
+    wire active_texture_enabled =
+        active_mode[0];
+
     wire active_depth_enabled =
         active_mode[1];
+
+    wire active_blend_enabled =
+        active_mode[2];
+
+    // Reconstructed coordinates are signed Q16.16. M10D-2 selects one
+    // nearest sample by taking the integer texel coordinate after the
+    // documented perspective reconstruction, then clamps it to the
+    // snapshotted texture rectangle.
+    wire signed [63:0] texture_u_integer =
+        raster_covered_u_q16 >>> 16;
+
+    wire signed [63:0] texture_v_integer =
+        raster_covered_v_q16 >>> 16;
+
+    wire [15:0] texture_max_x =
+        active_texture_size[15:0] - 16'd1;
+
+    wire [15:0] texture_max_y =
+        active_texture_size[31:16] - 16'd1;
+
+    wire [15:0] texture_u_clamped =
+        (texture_u_integer < 64'sd0) ?
+        16'd0 :
+        (
+            texture_u_integer >=
+            $signed(
+                {
+                    48'd0,
+                    active_texture_size[15:0]
+                }
+            )
+        ) ?
+        texture_max_x :
+        texture_u_integer[15:0];
+
+    wire [15:0] texture_v_clamped =
+        (texture_v_integer < 64'sd0) ?
+        16'd0 :
+        (
+            texture_v_integer >=
+            $signed(
+                {
+                    48'd0,
+                    active_texture_size[31:16]
+                }
+            )
+        ) ?
+        texture_max_y :
+        texture_v_integer[15:0];
+
+    wire [31:0] texture_pixel_index =
+        (
+            texture_v_clamped *
+            active_texture_size[15:0]
+        ) +
+        texture_u_clamped;
+
+    wire [31:0] texture_byte_offset =
+        texture_pixel_index << 1;
+
+    wire texture_upper_half =
+        texture_pixel_index[0];
+
+    wire [31:0] texture_access_addr =
+        active_texture_base +
+        {
+            texture_byte_offset[31:2],
+            2'b00
+        };
+
+    wire [15:0] texture_read_value =
+        texture_upper_half ?
+        sdram_rdata[31:16] :
+        sdram_rdata[15:0];
 
     wire direct_framebuffer_write_valid =
         busy &&
         (fetch_state == FETCH_RASTER) &&
         raster_busy &&
         raster_covered_valid &&
-        !active_depth_enabled;
+        !active_depth_enabled &&
+        !active_texture_enabled &&
+        !active_blend_enabled;
+
+    wire texture_read_valid =
+        busy &&
+        (fetch_state == FETCH_RASTER) &&
+        raster_busy &&
+        raster_covered_valid &&
+        active_texture_enabled &&
+        (fragment_state == FRAGMENT_TEXTURE_READ);
 
     wire depth_read_valid =
         busy &&
@@ -156,12 +254,24 @@ module jupiter_gpu_3d
         (fetch_state == FETCH_RASTER) &&
         raster_busy &&
         raster_covered_valid &&
-        active_depth_enabled &&
+        (
+            active_depth_enabled ||
+            active_texture_enabled ||
+            active_blend_enabled
+        ) &&
         (fragment_state == FRAGMENT_FRAMEBUFFER);
 
     wire framebuffer_write_valid =
         direct_framebuffer_write_valid ||
         depth_framebuffer_write_valid;
+
+    wire framebuffer_read_valid =
+        busy &&
+        (fetch_state == FETCH_RASTER) &&
+        raster_busy &&
+        raster_covered_valid &&
+        active_blend_enabled &&
+        (fragment_state == FRAGMENT_FRAMEBUFFER_READ);
 
     wire [31:0] framebuffer_write_addr =
         active_framebuffer_base +
@@ -170,15 +280,100 @@ module jupiter_gpu_3d
             2'b00
         };
 
+    function automatic [15:0] blend_rgb565;
+        input [15:0] source_color;
+        input [15:0] destination_color;
+        input  [4:0] alpha;
+
+        reg [4:0] inverse_alpha;
+
+        reg [10:0] red_accum;
+        reg [11:0] green_accum;
+        reg [10:0] blue_accum;
+
+        reg [4:0] red_result;
+        reg [5:0] green_result;
+        reg [4:0] blue_result;
+
+        begin
+            inverse_alpha =
+                5'd16 - alpha;
+
+            red_accum =
+                (
+                    source_color[15:11] *
+                    alpha
+                ) +
+                (
+                    destination_color[15:11] *
+                    inverse_alpha
+                ) +
+                11'd8;
+
+            green_accum =
+                (
+                    source_color[10:5] *
+                    alpha
+                ) +
+                (
+                    destination_color[10:5] *
+                    inverse_alpha
+                ) +
+                12'd8;
+
+            blue_accum =
+                (
+                    source_color[4:0] *
+                    alpha
+                ) +
+                (
+                    destination_color[4:0] *
+                    inverse_alpha
+                ) +
+                11'd8;
+
+            red_result =
+                red_accum >> 4;
+
+            green_result =
+                green_accum >> 4;
+
+            blue_result =
+                blue_accum >> 4;
+
+            blend_rgb565 =
+            {
+                red_result,
+                green_result,
+                blue_result
+            };
+        end
+    endfunction
+
+    wire [15:0] selected_fragment_color =
+        active_texture_enabled ?
+        fragment_source_color :
+        active_flat_color[15:0];
+
+    wire [15:0] framebuffer_read_value =
+        framebuffer_upper_half ?
+        sdram_rdata[31:16] :
+        sdram_rdata[15:0];
+
+    wire [15:0] framebuffer_output_color =
+        active_blend_enabled ?
+        fragment_output_color :
+        selected_fragment_color;
+
     wire [31:0] framebuffer_write_data =
         framebuffer_upper_half ?
         {
-            active_flat_color[15:0],
+            framebuffer_output_color,
             16'h0000
         } :
         {
             16'h0000,
-            active_flat_color[15:0]
+            framebuffer_output_color
         };
 
     wire [3:0] framebuffer_write_wstrb =
@@ -220,7 +415,6 @@ module jupiter_gpu_3d
             sdram_ready
         ) ||
         (
-            active_depth_enabled &&
             raster_covered_valid &&
             (fragment_state == FRAGMENT_REJECT)
         ) ||
@@ -346,9 +540,10 @@ module jupiter_gpu_3d
     // The selected GPU MMIO interface inserts no wait states.
     assign ready = valid;
 
-    // Vertex fetches and depth tests are aligned 32-bit reads.
-    // Depth and framebuffer updates remain aligned 32-bit transactions
-    // selecting one 16-bit destination with byte strobes.
+    // Vertex fetches, depth tests, and texture samples are aligned
+    // 32-bit reads. Texture traffic remains read-only. Depth and
+    // framebuffer updates remain aligned 32-bit transactions selecting
+    // one 16-bit destination with byte strobes.
     wire vertex_fetch_valid =
         busy &&
         (fetch_state == FETCH_WORD);
@@ -357,6 +552,8 @@ module jupiter_gpu_3d
         vertex_fetch_valid ||
         depth_read_valid ||
         depth_write_valid ||
+        texture_read_valid ||
+        framebuffer_read_valid ||
         framebuffer_write_valid;
 
     assign sdram_write =
@@ -373,6 +570,10 @@ module jupiter_gpu_3d
         depth_access_addr :
         depth_write_valid ?
         depth_access_addr :
+        texture_read_valid ?
+        texture_access_addr :
+        framebuffer_read_valid ?
+        framebuffer_write_addr :
         framebuffer_write_valid ?
         framebuffer_write_addr :
         32'h00000000;
@@ -404,21 +605,37 @@ module jupiter_gpu_3d
         .v0_x           (vertex_words[0]),
         .v0_y           (vertex_words[1]),
         .v0_z           (vertex_words[2][15:0]),
+        .v0_u_over_w    (vertex_words[3]),
+        .v0_v_over_w    (vertex_words[4]),
+        .v0_one_over_w  (vertex_words[5]),
+
         .v1_x           (vertex_words[6]),
         .v1_y           (vertex_words[7]),
         .v1_z           (vertex_words[8][15:0]),
+        .v1_u_over_w    (vertex_words[9]),
+        .v1_v_over_w    (vertex_words[10]),
+        .v1_one_over_w  (vertex_words[11]),
+
         .v2_x           (vertex_words[12]),
         .v2_y           (vertex_words[13]),
         .v2_z           (vertex_words[14][15:0]),
+        .v2_u_over_w    (vertex_words[15]),
+        .v2_v_over_w    (vertex_words[16]),
+        .v2_one_over_w  (vertex_words[17]),
 
         .busy           (raster_busy),
         .done           (raster_done),
 
         .covered_ready  (raster_covered_ready),
-        .covered_valid  (raster_covered_valid),
-        .covered_x      (raster_covered_x),
-        .covered_y      (raster_covered_y),
-        .covered_z      (raster_covered_z),
+        .covered_valid      (raster_covered_valid),
+        .covered_x          (raster_covered_x),
+        .covered_y          (raster_covered_y),
+        .covered_z          (raster_covered_z),
+        .covered_u_over_w   (raster_covered_u_over_w),
+        .covered_v_over_w   (raster_covered_v_over_w),
+        .covered_one_over_w (raster_covered_one_over_w),
+        .covered_u_q16      (raster_covered_u_q16),
+        .covered_v_q16      (raster_covered_v_q16),
 
         .coverage_count (raster_coverage_count),
         .sample_count   (raster_sample_count)
@@ -465,55 +682,143 @@ module jupiter_gpu_3d
         end
     end
 
-    // Depth-enabled fragments remain held by the raster valid/ready
-    // interface through the entire transaction sequence:
+    // Covered fragments remain held by the raster valid/ready
+    // interface through the selected transaction sequence.
     //
-    //   read stored depth
-    //   strict LESS compare
-    //   write new depth on pass
-    //   write framebuffer on pass
-    //   release immediately on fail/equal
+    // Flat:
+    //   framebuffer write
+    //
+    // Blend:
+    //   framebuffer read -> blend -> framebuffer write
+    //
+    // Texture:
+    //   texture read -> framebuffer write
+    //
+    // Texture + blend:
+    //   texture read -> framebuffer read -> blend -> framebuffer write
+    //
+    // Depth:
+    //   depth read -> strict LESS -> depth write -> framebuffer write
+    //
+    // Combined:
+    //   validate texture denominator
+    //   depth read / strict LESS
+    //   depth write on pass
+    //   texture read if enabled
+    //   framebuffer read / blend if enabled
+    //   framebuffer write
+    //
+    // A zero interpolated 1/W rejects a texture-enabled fragment before
+    // any depth or framebuffer state is modified.
     always @(posedge clk) begin
         if (reset) begin
-            fragment_state <= FRAGMENT_IDLE;
+            fragment_state        <= FRAGMENT_IDLE;
+            fragment_source_color <= 16'h0000;
+            fragment_output_color <= 16'h0000;
         end else if (
             !busy ||
             (fetch_state != FETCH_RASTER) ||
-            !active_depth_enabled
+            (
+                !active_depth_enabled &&
+                !active_texture_enabled &&
+                !active_blend_enabled
+            )
         ) begin
             fragment_state <= FRAGMENT_IDLE;
         end else begin
             case (fragment_state)
+
                 FRAGMENT_IDLE: begin
-                    if (raster_covered_valid)
-                        fragment_state <= FRAGMENT_DEPTH_READ;
+                    if (raster_covered_valid) begin
+                        if (
+                            active_texture_enabled &&
+                            (
+                                raster_covered_one_over_w ==
+                                32'd0
+                            )
+                        ) begin
+                            fragment_state <=
+                                FRAGMENT_REJECT;
+                        end else if (active_depth_enabled) begin
+                            fragment_state <=
+                                FRAGMENT_DEPTH_READ;
+                        end else if (active_texture_enabled) begin
+                            fragment_state <=
+                                FRAGMENT_TEXTURE_READ;
+                        end else if (active_blend_enabled) begin
+                            fragment_state <=
+                                FRAGMENT_FRAMEBUFFER_READ;
+                        end
+                    end
                 end
 
                 FRAGMENT_DEPTH_READ: begin
                     if (sdram_ready) begin
                         if (raster_covered_z < depth_read_value)
-                            fragment_state <= FRAGMENT_DEPTH_WRITE;
+                            fragment_state <=
+                                FRAGMENT_DEPTH_WRITE;
                         else
-                            fragment_state <= FRAGMENT_REJECT;
+                            fragment_state <=
+                                FRAGMENT_REJECT;
                     end
                 end
 
                 FRAGMENT_DEPTH_WRITE: begin
-                    if (sdram_ready)
-                        fragment_state <= FRAGMENT_FRAMEBUFFER;
+                    if (sdram_ready) begin
+                        if (active_texture_enabled)
+                            fragment_state <=
+                                FRAGMENT_TEXTURE_READ;
+                        else if (active_blend_enabled)
+                            fragment_state <=
+                                FRAGMENT_FRAMEBUFFER_READ;
+                        else
+                            fragment_state <=
+                                FRAGMENT_FRAMEBUFFER;
+                    end
+                end
+
+                FRAGMENT_TEXTURE_READ: begin
+                    if (sdram_ready) begin
+                        fragment_source_color <=
+                            texture_read_value;
+
+                        if (active_blend_enabled)
+                            fragment_state <=
+                                FRAGMENT_FRAMEBUFFER_READ;
+                        else
+                            fragment_state <=
+                                FRAGMENT_FRAMEBUFFER;
+                    end
+                end
+
+                FRAGMENT_FRAMEBUFFER_READ: begin
+                    if (sdram_ready) begin
+                        fragment_output_color <=
+                            blend_rgb565(
+                                selected_fragment_color,
+                                framebuffer_read_value,
+                                active_blend_alpha[4:0]
+                            );
+
+                        fragment_state <=
+                            FRAGMENT_FRAMEBUFFER;
+                    end
                 end
 
                 FRAGMENT_FRAMEBUFFER: begin
                     if (sdram_ready)
-                        fragment_state <= FRAGMENT_IDLE;
+                        fragment_state <=
+                            FRAGMENT_IDLE;
                 end
 
                 FRAGMENT_REJECT: begin
-                    fragment_state <= FRAGMENT_IDLE;
+                    fragment_state <=
+                        FRAGMENT_IDLE;
                 end
 
                 default: begin
-                    fragment_state <= FRAGMENT_IDLE;
+                    fragment_state <=
+                        FRAGMENT_IDLE;
                 end
             endcase
         end

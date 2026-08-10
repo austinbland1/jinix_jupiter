@@ -291,7 +291,69 @@ memory safety. `m10c-test` is part of the normal simulation regression, the
 Milestone 5 compatibility suite passes, and the complete `make -C sim test`
 repository regression passes with M10C registered.
 
-M10D adds the selected texture-mapping and blending paths.
+### M10D - Perspective Texture Mapping and Blending
+
+**Implementation status: complete and fully regressed.**
+
+M10D implements the selected texture-mapping and blending paths while
+preserving the previously verified flat-color and strict-LESS depth
+behavior:
+
+- the raster child linearly interpolates signed Q16.16 `U/W` and `V/W`
+  plus unsigned Q16.16 `1/W` from the three fetched vertex records;
+- the complete X/Y/Z, `U/W`, `V/W`, and `1/W` fragment payload remains
+  stable under valid/ready backpressure;
+- perspective reconstruction computes Q16.16 U and V by dividing the
+  interpolated value-over-W by interpolated `1/W`, with signed division
+  truncating toward zero;
+- texture-enabled fragments reject a zero interpolated `1/W` before any
+  depth or framebuffer state is modified;
+- nearest-neighbor texture selection uses the integer portion of the
+  reconstructed coordinates and clamps each coordinate to the selected
+  texture rectangle;
+- RGB565 textures remain linear row-major resources accessed only through
+  aligned 32-bit read-only SDRAM transactions with the selected 16-bit
+  texel extracted from the appropriate halfword;
+- texture-disabled rendering continues to use the snapshotted flat RGB565
+  color;
+- blend-enabled fragments read the selected framebuffer halfword and apply
+  the documented per-channel formula
+  `(src*A + dst*(16-A) + 8) >> 4` for R5, G6, and B5 independently;
+- blend alpha zero preserves the destination, alpha sixteen selects the
+  source, and alpha eight matches the deterministic rounded half-blend
+  references;
+- depth, texture, and blending compose in deterministic transaction order:
+  depth read, strict-LESS decision, depth write on pass, optional texture
+  read, optional framebuffer destination read/blend, then framebuffer
+  write;
+- depth rejection suppresses all later texture, blend, and framebuffer
+  traffic for that fragment;
+- texture memory is never written, framebuffer/depth halfword writes retain
+  their aligned `0011`/`1100` byte strobes, and accesses remain restricted
+  to the selected vertex, texture, framebuffer, and depth resources.
+
+The deterministic M10D references verify six exact perspective-correct
+fragments, nearest texture selection including a case that differs from
+affine interpolation, exact RGB565 blend results, alpha endpoints,
+backpressured texture/framebuffer transactions, and a stateful
+texture+depth+blend command with exact transaction ordering.
+
+The composed reference performs 18 vertex reads, six depth reads, three
+strict-LESS depth writes, three texture reads, three framebuffer reads,
+and three framebuffer writes. Three depth-rejected fragments produce no
+texture or framebuffer traffic. It reports zero transaction-sequence
+errors, zero illegal accesses, zero boundary-sentinel accesses, legal
+alignment/strobes throughout, and all nine graphics-memory sentinels
+intact.
+
+`m10d-test` is registered in the normal simulation regression and runs the
+perspective, texture, blending, and composed references. The complete
+Milestone 5 compatibility suite passes, and the full `make -C sim test`
+repository regression passes with the real M10D Icarus Verilog commands
+registered.
+
+M10E performs final Milestone 10 acceptance, shared-memory contention
+coverage, and full milestone closeout.
 
 ### M10D - Perspective texture and blending
 

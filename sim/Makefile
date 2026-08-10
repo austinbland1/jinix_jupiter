@@ -381,3 +381,47 @@ clean:
 		jupiter_cpu_dma_contention.vvp jupiter_gpu_dma_contention.vvp \
 		jupiter_three_master_contention.vvp
 	rm -f jupiter_audio.vvp jupiter_audio_playback.vvp jupiter_audio_mixer.vvp jupiter_interconnect_audio.vvp jupiter_cpu_audio_mmio.vvp
+
+# ============================================================
+# Milestone 10D - perspective texture mapping and blending
+# ============================================================
+
+.PHONY: m10d-test \
+	gpu-3d-perspective-test \
+	gpu-3d-texture-test \
+	gpu-3d-blend-test \
+	gpu-3d-texture-blend-test \
+	m10d-clean
+
+test: m10d-test
+
+m10d-test: \
+	gpu-3d-perspective-test \
+	gpu-3d-texture-test \
+	gpu-3d-blend-test \
+	gpu-3d-texture-blend-test
+
+gpu-3d-perspective-test:
+	iverilog -g2012 -s jupiter_gpu_3d_perspective_tb -o jupiter_gpu_3d_perspective.vvp ../rtl/gpu/jupiter_gpu_3d_raster.sv jupiter_gpu_3d_perspective_tb.sv
+	vvp -n jupiter_gpu_3d_perspective.vvp
+
+gpu-3d-texture-test:
+	iverilog -g2012 -s jupiter_gpu_3d_texture_tb -o jupiter_gpu_3d_texture.vvp ../rtl/gpu/jupiter_gpu_3d_raster.sv ../rtl/gpu/jupiter_gpu_3d.sv jupiter_gpu_3d_texture_tb.sv
+	vvp -n jupiter_gpu_3d_texture.vvp
+
+gpu-3d-blend-test:
+	iverilog -g2012 -s jupiter_gpu_3d_blend_tb -o jupiter_gpu_3d_blend.vvp ../rtl/gpu/jupiter_gpu_3d_raster.sv ../rtl/gpu/jupiter_gpu_3d.sv jupiter_gpu_3d_blend_tb.sv
+	vvp -n jupiter_gpu_3d_blend.vvp
+
+gpu-3d-texture-blend-test:
+	iverilog -g2012 -s jupiter_gpu_3d_texture_blend_tb -o jupiter_gpu_3d_texture_blend.vvp ../rtl/gpu/jupiter_gpu_3d_raster.sv ../rtl/gpu/jupiter_gpu_3d.sv jupiter_gpu_3d_texture_blend_tb.sv
+	vvp -n jupiter_gpu_3d_texture_blend.vvp
+
+clean: m10d-clean
+
+m10d-clean:
+	rm -f \
+		jupiter_gpu_3d_perspective.vvp \
+		jupiter_gpu_3d_texture.vvp \
+		jupiter_gpu_3d_blend.vvp \
+		jupiter_gpu_3d_texture_blend.vvp

@@ -11,12 +11,23 @@ module jupiter_gpu_3d_raster
     input  wire signed [31:0] v0_x,
     input  wire signed [31:0] v0_y,
     input  wire        [15:0] v0_z,
+    input  wire signed [31:0] v0_u_over_w,
+    input  wire signed [31:0] v0_v_over_w,
+    input  wire        [31:0] v0_one_over_w,
+
     input  wire signed [31:0] v1_x,
     input  wire signed [31:0] v1_y,
     input  wire        [15:0] v1_z,
+    input  wire signed [31:0] v1_u_over_w,
+    input  wire signed [31:0] v1_v_over_w,
+    input  wire        [31:0] v1_one_over_w,
+
     input  wire signed [31:0] v2_x,
     input  wire signed [31:0] v2_y,
     input  wire        [15:0] v2_z,
+    input  wire signed [31:0] v2_u_over_w,
+    input  wire signed [31:0] v2_v_over_w,
+    input  wire        [31:0] v2_one_over_w,
 
     output reg                busy,
     output reg                done,
@@ -28,6 +39,15 @@ module jupiter_gpu_3d_raster
     output reg         [15:0] covered_x,
     output reg         [15:0] covered_y,
     output reg         [15:0] covered_z,
+
+    output reg signed [31:0] covered_u_over_w,
+    output reg signed [31:0] covered_v_over_w,
+    output reg        [31:0] covered_one_over_w,
+
+    // Perspective reconstructed Q16.16 coordinates. These remain
+    // unclamped until the texture stage applies the selected rectangle.
+    output reg signed [63:0] covered_u_q16,
+    output reg signed [63:0] covered_v_q16,
 
     // Deterministic command-local counters.
     output reg         [31:0] coverage_count,
@@ -46,12 +66,23 @@ module jupiter_gpu_3d_raster
     reg signed [31:0] active_v0_x;
     reg signed [31:0] active_v0_y;
     reg        [15:0] active_v0_z;
+    reg signed [31:0] active_v0_u_over_w;
+    reg signed [31:0] active_v0_v_over_w;
+    reg        [31:0] active_v0_one_over_w;
+
     reg signed [31:0] active_v1_x;
     reg signed [31:0] active_v1_y;
     reg        [15:0] active_v1_z;
+    reg signed [31:0] active_v1_u_over_w;
+    reg signed [31:0] active_v1_v_over_w;
+    reg        [31:0] active_v1_one_over_w;
+
     reg signed [31:0] active_v2_x;
     reg signed [31:0] active_v2_y;
     reg        [15:0] active_v2_z;
+    reg signed [31:0] active_v2_u_over_w;
+    reg signed [31:0] active_v2_v_over_w;
+    reg        [31:0] active_v2_one_over_w;
 
     reg [15:0] raster_x;
     reg [15:0] raster_y;
@@ -186,6 +217,172 @@ module jupiter_gpu_3d_raster
                     (dy == 33'sd0) &&
                     (dx < 33'sd0)
                 );
+        end
+    endfunction
+
+    // Signed Q16.16 barycentric interpolation. Edge weights are
+    // nonnegative for a covered CCW sample. Signed division therefore
+    // provides the selected deterministic truncation toward zero.
+    function automatic signed [31:0] interpolate_signed_q16;
+        input signed [31:0] value0;
+        input signed [31:0] value1;
+        input signed [31:0] value2;
+        input signed [66:0] weight0;
+        input signed [66:0] weight1;
+        input signed [66:0] weight2;
+        input signed [66:0] area;
+
+        reg signed [98:0] product0;
+        reg signed [98:0] product1;
+        reg signed [98:0] product2;
+        reg signed [100:0] numerator;
+        reg signed [100:0] quotient;
+
+        begin
+            product0 = 99'sd0;
+            product1 = 99'sd0;
+            product2 = 99'sd0;
+            numerator = 101'sd0;
+            quotient = 101'sd0;
+
+            if (
+                (area > 67'sd0) &&
+                (weight0 >= 67'sd0) &&
+                (weight1 >= 67'sd0) &&
+                (weight2 >= 67'sd0)
+            ) begin
+                product0 =
+                    $signed(value0) *
+                    $signed(weight0);
+
+                product1 =
+                    $signed(value1) *
+                    $signed(weight1);
+
+                product2 =
+                    $signed(value2) *
+                    $signed(weight2);
+
+                numerator =
+                    {{2{product0[98]}}, product0} +
+                    {{2{product1[98]}}, product1} +
+                    {{2{product2[98]}}, product2};
+
+                quotient =
+                    numerator /
+                    $signed(
+                        {
+                            {34{area[66]}},
+                            area
+                        }
+                    );
+
+                interpolate_signed_q16 =
+                    quotient[31:0];
+            end else begin
+                interpolate_signed_q16 =
+                    32'sd0;
+            end
+        end
+    endfunction
+
+    // Unsigned Q16.16 barycentric interpolation for 1/W.
+    function automatic [31:0] interpolate_unsigned_q16;
+        input        [31:0] value0;
+        input        [31:0] value1;
+        input        [31:0] value2;
+        input signed [66:0] weight0;
+        input signed [66:0] weight1;
+        input signed [66:0] weight2;
+        input signed [66:0] area;
+
+        reg [98:0] product0;
+        reg [98:0] product1;
+        reg [98:0] product2;
+        reg [100:0] numerator;
+        reg [100:0] quotient;
+
+        begin
+            product0 = 99'd0;
+            product1 = 99'd0;
+            product2 = 99'd0;
+            numerator = 101'd0;
+            quotient = 101'd0;
+
+            if (
+                (area > 67'sd0) &&
+                (weight0 >= 67'sd0) &&
+                (weight1 >= 67'sd0) &&
+                (weight2 >= 67'sd0)
+            ) begin
+                product0 =
+                    value0 *
+                    $unsigned(weight0);
+
+                product1 =
+                    value1 *
+                    $unsigned(weight1);
+
+                product2 =
+                    value2 *
+                    $unsigned(weight2);
+
+                numerator =
+                    {2'b00, product0} +
+                    {2'b00, product1} +
+                    {2'b00, product2};
+
+                quotient =
+                    numerator /
+                    {
+                        34'd0,
+                        area[66:0]
+                    };
+
+                interpolate_unsigned_q16 =
+                    quotient[31:0];
+            end else begin
+                interpolate_unsigned_q16 =
+                    32'd0;
+            end
+        end
+    endfunction
+
+    // Reconstruct Q16.16 U or V from a linearly interpolated
+    // Q16.16 value-over-W and unsigned Q16.16 1/W.
+    //
+    //     result_q16 = (value_over_w_q16 << 16) / one_over_w_q16
+    //
+    // Signed division truncates toward zero as selected by the
+    // M10 architecture.
+    function automatic signed [63:0] perspective_divide_q16;
+        input signed [31:0] value_over_w;
+        input        [31:0] one_over_w;
+
+        reg signed [63:0] numerator;
+
+        begin
+            numerator =
+                $signed(
+                    {
+                        {32{value_over_w[31]}},
+                        value_over_w
+                    }
+                ) <<< 16;
+
+            if (one_over_w != 32'd0) begin
+                perspective_divide_q16 =
+                    numerator /
+                    $signed(
+                        {
+                            1'b0,
+                            one_over_w
+                        }
+                    );
+            end else begin
+                perspective_divide_q16 =
+                    64'sd0;
+            end
         end
     endfunction
 
@@ -456,6 +653,57 @@ module jupiter_gpu_3d_raster
             triangle_area
         );
 
+    wire signed [31:0] sample_u_over_w =
+        interpolate_signed_q16(
+            active_v0_u_over_w,
+            active_v1_u_over_w,
+            active_v2_u_over_w,
+            edge1,
+            edge2,
+            edge0,
+            triangle_area
+        );
+
+    wire signed [31:0] sample_v_over_w =
+        interpolate_signed_q16(
+            active_v0_v_over_w,
+            active_v1_v_over_w,
+            active_v2_v_over_w,
+            edge1,
+            edge2,
+            edge0,
+            triangle_area
+        );
+
+    wire [31:0] sample_one_over_w =
+        interpolate_unsigned_q16(
+            active_v0_one_over_w,
+            active_v1_one_over_w,
+            active_v2_one_over_w,
+            edge1,
+            edge2,
+            edge0,
+            triangle_area
+        );
+
+    wire signed [63:0] sample_u_q16 =
+        perspective_divide_q16(
+            sample_u_over_w,
+            sample_one_over_w
+        );
+
+    wire signed [63:0] sample_v_q16 =
+        perspective_divide_q16(
+            sample_v_over_w,
+            sample_one_over_w
+        );
+
+    // M10D-1 exposes the interpolated/reconstructed attributes without
+    // changing raster coverage. Texture-enabled fragment rejection for
+    // a zero reconstructed denominator is handled by the texture stage.
+    wire sample_perspective_valid =
+        (sample_one_over_w != 32'd0);
+
     // --------------------------------------------------------
     // Raster state machine
     // --------------------------------------------------------
@@ -470,12 +718,23 @@ module jupiter_gpu_3d_raster
             active_v0_x <= 32'sd0;
             active_v0_y <= 32'sd0;
             active_v0_z <= 16'd0;
+            active_v0_u_over_w <= 32'sd0;
+            active_v0_v_over_w <= 32'sd0;
+            active_v0_one_over_w <= 32'd0;
+
             active_v1_x <= 32'sd0;
             active_v1_y <= 32'sd0;
             active_v1_z <= 16'd0;
+            active_v1_u_over_w <= 32'sd0;
+            active_v1_v_over_w <= 32'sd0;
+            active_v1_one_over_w <= 32'd0;
+
             active_v2_x <= 32'sd0;
             active_v2_y <= 32'sd0;
             active_v2_z <= 16'd0;
+            active_v2_u_over_w <= 32'sd0;
+            active_v2_v_over_w <= 32'sd0;
+            active_v2_one_over_w <= 32'd0;
 
             raster_x <= 16'd0;
             raster_y <= 16'd0;
@@ -488,10 +747,15 @@ module jupiter_gpu_3d_raster
             busy <= 1'b0;
             done <= 1'b0;
 
-            covered_valid <= 1'b0;
-            covered_x     <= 16'd0;
-            covered_y     <= 16'd0;
-            covered_z     <= 16'd0;
+            covered_valid      <= 1'b0;
+            covered_x          <= 16'd0;
+            covered_y          <= 16'd0;
+            covered_z          <= 16'd0;
+            covered_u_over_w   <= 32'sd0;
+            covered_v_over_w   <= 32'sd0;
+            covered_one_over_w <= 32'd0;
+            covered_u_q16      <= 64'sd0;
+            covered_v_q16      <= 64'sd0;
 
             coverage_count <= 32'd0;
             sample_count   <= 32'd0;
@@ -509,12 +773,23 @@ module jupiter_gpu_3d_raster
                         active_v0_x <= v0_x;
                         active_v0_y <= v0_y;
                         active_v0_z <= v0_z;
+                        active_v0_u_over_w <= v0_u_over_w;
+                        active_v0_v_over_w <= v0_v_over_w;
+                        active_v0_one_over_w <= v0_one_over_w;
+
                         active_v1_x <= v1_x;
                         active_v1_y <= v1_y;
                         active_v1_z <= v1_z;
+                        active_v1_u_over_w <= v1_u_over_w;
+                        active_v1_v_over_w <= v1_v_over_w;
+                        active_v1_one_over_w <= v1_one_over_w;
+
                         active_v2_x <= v2_x;
                         active_v2_y <= v2_y;
                         active_v2_z <= v2_z;
+                        active_v2_u_over_w <= v2_u_over_w;
+                        active_v2_v_over_w <= v2_v_over_w;
+                        active_v2_one_over_w <= v2_one_over_w;
 
                         raster_x <= 16'd0;
                         raster_y <= 16'd0;
@@ -587,10 +862,15 @@ module jupiter_gpu_3d_raster
                     end else if (sample_covered) begin
                         // Publish the covered sample, but do not advance the
                         // scan until covered_ready accepts it.
-                        covered_valid <= 1'b1;
-                        covered_x     <= raster_x;
-                        covered_y     <= raster_y;
-                        covered_z     <= sample_depth;
+                        covered_valid      <= 1'b1;
+                        covered_x          <= raster_x;
+                        covered_y          <= raster_y;
+                        covered_z          <= sample_depth;
+                        covered_u_over_w   <= sample_u_over_w;
+                        covered_v_over_w   <= sample_v_over_w;
+                        covered_one_over_w <= sample_one_over_w;
+                        covered_u_q16      <= sample_u_q16;
+                        covered_v_q16      <= sample_v_q16;
                     end else begin
                         sample_count <=
                             sample_count + 32'd1;
