@@ -484,3 +484,24 @@ clean: m11b2a-clean
 
 m11b2a-clean:
 	rm -f jupiter_sdram_scanout_arbiter.vvp
+
+# ============================================================
+# Milestone 11B-2b - scanout MMIO / timing shell
+# ============================================================
+
+.PHONY: m11b2b-test \
+	video-scanout-test \
+	m11b2b-clean
+
+test: m11b2b-test
+
+m11b2b-test: m11b2a-test video-scanout-test
+
+video-scanout-test:
+	iverilog -g2012 -s jupiter_video_scanout_tb -o jupiter_video_scanout.vvp ../rtl/video/jupiter_video_scanout.sv jupiter_video_scanout_tb.sv
+	vvp -n jupiter_video_scanout.vvp
+
+clean: m11b2b-clean
+
+m11b2b-clean:
+	rm -f jupiter_video_scanout.vvp
