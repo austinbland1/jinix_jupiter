@@ -55,6 +55,41 @@ Run `make -C sim m9c-test` to assemble the BIOS at `0x00000000`, assemble the ap
 
 Generated `.hex`, `.mem`, and `.vvp` files are temporary build products.
 
+## M9D Reproducible End-to-End Workflow
+
+From the repository root, the canonical Milestone 9 acceptance command is:
+
+```text
+make -C sim m9c-test
+```
+
+That target performs the complete reproducible path in order:
+
+1. assemble `software/bios/bios.asm` at origin `0x00000000`;
+2. assemble `software/bios/test_program.asm` at origin `0x00000400`;
+3. build the exact 1024-word system image;
+4. validate BIOS/application words, placement, image length, and zero filling;
+5. load the generated image into internal RAM before reset release;
+6. execute the BIOS through the normal CPU/interconnect/RAM path;
+7. transfer to application entry `0x00000400`;
+8. verify the application writes `42` to MMIO scratch;
+9. verify execution reaches `HALT` at `0x0000040C`.
+
+Expected assembled words are:
+
+```text
+BIOS:
+320000FF
+
+APPLICATION:
+10081000
+1010002A
+21104000
+FF000000
+```
+
+Host-tool correctness and deterministic error handling are exercised by `make -C sim m9b-test`. The full repository acceptance regression is `make -C sim test`. Generated `.hex`, `.mem`, and `.vvp` files are temporary and are removed by `make -C sim clean`.
+
 ## Boundary
 
-M9C establishes deterministic BIOS-to-application execution in simulation without changing synthesizable RAM or CPU-subsystem RTL. M9D owns final workflow documentation, acceptance, and closeout.
+Milestone 9 provides the selected minimum BIOS and host development workflow. It does not add a C compiler, relocatable object format, runtime library, cartridge/filesystem loader, HPS firmware-update transport, or synthesis-time BIOS-storage architecture.

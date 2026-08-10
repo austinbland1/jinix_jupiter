@@ -5,7 +5,7 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
 > **Current branch:** `milestone-9`
-> **Current checkpoint:** M9C BIOS and generated boot-image integration are implemented and verified; M9D acceptance is next.
+> **Current checkpoint:** Milestone 9 BIOS and host development tools are complete and acceptance-verified; Milestone 10 fixed-function 3D is next.
 > **Verified predecessor:** `m8-verified` = `3f9ede50e43e974b6980acbf4bd5eb47fcd4b95a`
 ---
 
@@ -22,7 +22,7 @@ Jupiter is **not an emulator of an existing console**. It is being designed as i
 | 6 | DMA and three-master SDRAM arbitration | **Verified — `m6-verified`** |
 | 7 | PCM audio | **Verified in simulation — `m7-verified`** |
 | 8 | Controllers and core peripherals | **Verified in simulation — `m8-verified`** |
-| 9 | BIOS and host development tools | **In progress — M9C boot path verified; M9D acceptance next** |
+| 9 | BIOS and host development tools | **Complete — M9D acceptance verified** |
 | 10+ | 3D, HPS services, later platform work | Not yet implemented |
 Milestones are developed incrementally with deterministic simulation coverage. Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.
 
@@ -314,11 +314,11 @@ The `milestone-7` branch starts directly from `m6-verified`.
 
 ## Current Next Step
 
-**M9D — final workflow, acceptance, and closeout.**
+**Milestone 10 — Fixed-Function 3D.**
 
-M9C now proves BIOS source at `0x00000000` through generated image loading, BIOS transfer to application entry `0x00000400`, MMIO scratch write of `42`, and `HALT` at `0x0000040C`.
+Milestone 9 is complete: Jupiter now has original boot firmware, a minimum host assembler, deterministic system-image construction, and a reproducible source-to-execution simulation workflow.
 
-M9D will document the reproducible workflow, complete final acceptance, and close Milestone 9.
+The verified M9 path resets at `0x00000000`, executes the BIOS, transfers to the host-built application at `0x00000400`, writes `42` to MMIO scratch, and halts at `0x0000040C`.
 
 ---
 

@@ -349,12 +349,12 @@ Jupiter is a new fantasy console. No historical firmware is being reproduced. Th
 - Automated tests for host-side tools where practical.
 
 ### Acceptance Criteria
-- [ ] Simulated Jupiter can begin execution through the selected boot process.
-- [ ] A host-built Jupiter test program can be produced using the devkit from Milestone 9.
-- [ ] That program can be loaded using the selected mechanism and executed successfully in simulation.
-- [ ] Generated machine code agrees with `docs/ISA_SPEC.md`.
-- [ ] Tooling errors produce deterministic failure rather than silently generating invalid output.
-- [ ] The complete build-to-execution path is documented and reproducible.
+- [x] Simulated Jupiter can begin execution through the selected boot process.
+- [x] A host-built Jupiter test program can be produced using the devkit from Milestone 9.
+- [x] That program can be loaded using the selected mechanism and executed successfully in simulation.
+- [x] Generated machine code agrees with `docs/ISA_SPEC.md`.
+- [x] Tooling errors produce deterministic failure rather than silently generating invalid output.
+- [x] The complete build-to-execution path is documented and reproducible.
 
 ### Non-Goals
 - No C compiler, full relocatable linker, runtime library, or mature development kit is required at this milestone unless later explicitly selected during design.

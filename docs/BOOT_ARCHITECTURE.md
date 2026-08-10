@@ -283,12 +283,17 @@ Implemented and verified:
 
 ### M9D — End-to-end workflow and acceptance
 
-Verify and document:
+Milestone 9 acceptance is satisfied by the reproducible M9 tool and simulation path:
 
-- source -> assembler -> image builder -> simulated boot -> application result;
-- all Milestone 9 acceptance criteria;
-- full repository regression;
-- formal M9 closeout.
+- source -> assembler -> system-image builder -> simulated boot -> application result is documented and reproducible;
+- reset begins execution through the selected BIOS process at `0x00000000`;
+- the M9 devkit produces the host-built application placed at `0x00000400`;
+- the generated image is loaded with the selected simulation mechanism and executes successfully;
+- assembler golden-encoding tests verify generated machine code against `docs/ISA_SPEC.md`;
+- assembler and image-builder negative tests verify deterministic failures for invalid input;
+- the application writes `42` to MMIO scratch and reaches `HALT` at `0x0000040C`;
+- `make -C sim m9c-test` is the focused source-to-execution acceptance path;
+- `make -C sim test` is the complete repository regression used for final closeout.
 
 ---
 
