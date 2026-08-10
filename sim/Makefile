@@ -450,3 +450,16 @@ clean: m10e-clean
 
 m10e-clean:
 	rm -f jupiter_gpu_2d3d_contention.vvp
+
+# ============================================================
+# Milestone 11A - release/integration baseline
+# ============================================================
+
+.PHONY: m11a-test m11a-integration-static-test
+
+test: m11a-test
+
+m11a-test: m10e-test m11a-integration-static-test
+
+m11a-integration-static-test:
+	python3 -B check_m11a_integration_release.py

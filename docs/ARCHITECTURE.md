@@ -2,7 +2,7 @@
 
 <!--
  DO NOT CONFIRM THIS SECTION AS ACCURATE WITHOUT ACTUALLY READING THE SOURCE.
- These are PROPOSED elements for a core that does not yet exist in this repo.
+ This document records the implemented Jupiter architecture through Milestone 10 and the remaining Milestone 11 integration and release-validation boundaries.
 -->
 
 ## Table of Contents
@@ -162,12 +162,25 @@ Jinix Jupiter is proposed as a MiSTer FPGA core emulating a dedicated arcade/ent
 
 ### Custom 32-bit RISC CPU
 
-**PROPOSED.** No functional CPU RTL exists in the current repository; Milestone 1 provides only a boundary placeholder. A custom 32-bit RISC CPU is a design target for Jupiter.
+**MILESTONE 2 SELECTED AND IMPLEMENTED.** Jupiter has a functional custom
+32-bit RISC CPU under `rtl/cpu/jupiter_cpu.sv`. The architectural contract is
+defined by `docs/ISA_SPEC.md` and is verified by deterministic simulation.
 
-- Architecture: custom 32-bit RISC — instruction set architecture, register-file depth, and pipeline structure remain TBD.
-- Pipeline: stage count and microarchitecture are TBD (not yet finalized).
-- Clock domain: clock sources and frequency division remain TBD; resets routed through TBD control path.
-- Registers: register-file design (capacity, access width) is TBD.
+- Architectural state includes 32 general-purpose 32-bit registers, `r0`
+  through `r31`, plus a 32-bit program counter.
+- Instructions are fixed-width 32-bit words and instruction addresses are
+  4-byte aligned.
+- The selected initial ISA includes register-register arithmetic and logic,
+  immediate arithmetic, aligned 32-bit loads/stores, conditional branches,
+  an unconditional PC-relative jump, NOP, and HALT.
+- The address space is 32-bit byte-addressed and implemented word accesses are
+  little-endian.
+- Reset restarts instruction fetch at address zero.
+- The CPU uses the selected `mem_valid` / `mem_ready` transaction boundary
+  with one outstanding CPU memory transaction at a time.
+- Richer ISA features, ABI conventions, interrupts, privilege, multiply/divide
+  instructions, and performance-oriented CPU expansion remain future work
+  unless separately selected and verified.
 
 ### System Bus
 
@@ -244,19 +257,30 @@ The selected architecture is documented in `docs/SDRAM_ARCHITECTURE.md`.
 - Milestone 5 adds GPU and Milestone 6 adds DMA as external-SDRAM masters;
   the selected arbiter is deterministic non-preemptive three-way round-robin
   in CPU -> GPU -> DMA cyclic order.
-- Exact row/bank/column mapping, controller clocking, physical timing values,
-  and CAS behavior remain implementation-stage decisions.
+- The current row/bank/column mapping, 20 MHz controller clock, top-level SDRAM clock method, initialization delays, refresh policy, CAS behavior, and conservative controller timing parameters are selected and documented in `docs/SDRAM_ARCHITECTURE.md`; Quartus timing closure and physical-hardware timing remain unvalidated.
 
 ### 2D Graphics Subsystem
 
-**PROPOSED.** As a fantasy console, Jinix Jupiter is designed primarily as a new system rather than an emulator of any original hardware. Strong hardware-assisted 2D graphics are a design target:
+**MILESTONE 5 SELECTED AND IMPLEMENTED.** The initial Jupiter 2D engine is a
+bounded deterministic tile/background renderer. The complete selected
+contract is documented in `docs/GPU_2D_ARCHITECTURE.md`.
 
-- Sprite engine: hardware sprites with per-sprite color/table lookup, size control, and flip/h mirror — exact sprite counts, maximum sprite dimensions, and simultaneous sprite limits remain TBD.
-- Tilemap/background: scrollable multi-plane tile layers with palette remapping — exact layer count, VRAM organization, and palette sizes remain TBD.
-- Scrolling: separate X/Y registers per layer; windowed scroll regions may be supported.
-- Color modes: RGB555 / RGB565-style internal formats are provisional design targets. The core does not assume any fixed-limit output color depth.
-- Blitter: bit-block transfer source/dest with alpha/color-key transparency and logical ops (AND/OR/XOR) — implementation details remain TBD.
-- Tile-oriented, bandwidth-efficient rendering is an important design goal because external-memory bandwidth is limited.
+- The initial implementation provides one hardware tile/background renderer.
+- Tiles are 8 x 8 pixels using direct-color RGB565 texels.
+- One row-major tilemap layer is selected.
+- Software programs tilemap, tile-data, and framebuffer base addresses plus
+  map width and height.
+- The engine expands the selected tilemap into a linear RGB565 framebuffer in
+  external SDRAM.
+- Tilemap and tile-data resources are read-only to the renderer; only the
+  selected framebuffer region is written.
+- The M5 CPU-visible GPU aperture is `0x00001100-0x000011FF`.
+- Milestone 10 adds the 3D engine behind the same subsystem-visible GPU
+  boundary; 2D and 3D share the GPU SDRAM master through deterministic
+  internal arbitration.
+- Sprites, scrolling layers, palette engines, general blitter operations, and
+  other richer long-term 2D features are not part of the verified initial
+  implementation.
 
 ### Fixed-Function 3D Graphics
 
@@ -369,10 +393,20 @@ See `docs/BOOT_ARCHITECTURE.md` for the complete selected host-tool contract.
 
 ### Optional HPS-Assisted Services
 
-The MiSTer host ARM processor (Cortex-A9) may optionally assist Jupiter with storage, networking, media, file loading, save data, or other host-facing services.
-Such HPS assistance must not become Jupiter's game CPU: core gameplay architecture must not depend on the ARM processor performing normal game logic.
+The MiSTer host ARM processor remains an optional host-facing assistant and
+must not become Jupiter's normal game CPU.
 
-- When and if implemented, the exact protocols, interfaces, and OSD options for any HPS-assisted services remain TBD.
+**M11A selects no new optional HPS-assisted service for the initial release
+baseline.**
+
+The existing `hps_io` framework boundary continues to provide the already
+integrated MiSTer-facing configuration/status, digital controller state, and
+reported SDRAM configuration used by the Jupiter top-level integration.
+
+No M11A storage, networking, media, runtime file-loading, or save-data
+protocol is added. Any future HPS-assisted service must use a verified MiSTer
+interface, document its protocol and OSD behavior, preserve FPGA-side normal
+game logic, and receive deterministic regression coverage.
 
 ---
 
@@ -384,9 +418,14 @@ are treated as current architecture; only their future extensions remain open.
 
 ### CPU ISA and Microarchitecture
 
-- What is the exact instruction set architecture for the proposed custom 32-bit CPU? Is it derived from an existing ISA or fully custom?
-- How many pipeline stages will the CPU have at target clock frequencies? Will a multiply unit be built-in or simulated via microcode?
-- Target CPU frequency is TBD.
+The initial CPU ISA is resolved by Milestone 2 and documented in
+`docs/ISA_SPEC.md`. The functional CPU RTL is implemented and regression
+tested.
+
+Future questions are limited to extensions beyond the verified initial CPU,
+including richer ISA features, ABI conventions, interrupts/privilege,
+multiply/divide support, and performance-oriented microarchitectural changes.
+No target Fmax is claimed without Quartus timing evidence.
 
 ### System Bus
 
@@ -397,28 +436,43 @@ are treated as current architecture; only their future extensions remain open.
 
 ### Memory Map
 
-- Where should later controller, firmware, and other still-unselected regions
-  be assigned around the established RAM, GPU MMIO, DMA MMIO, audio MMIO,
-  and external-SDRAM regions?
+The implemented address map through Milestone 10 is selected and documented
+in `docs/BUS_MEMORY_MAP.md`: internal RAM, scratch MMIO, GPU MMIO, DMA MMIO,
+audio MMIO, controller MMIO, and the installed-size-qualified external-SDRAM
+aperture have distinct non-overlapping regions.
+
+Only future, still-unselected peripheral or service regions require new
+address allocation.
 
 ### SDRAM Controller and Bandwidth Scheduling
 
-- What exact row/bank/column transformation should the controller use for
-  each supported SDRAM geometry?
-- What controller clock frequency and SDRAM clock phase relationship will
-  be selected?
-- What initialization delays, refresh interval, CAS latency, and other
-  timing parameters are required by the selected physical SDRAM
-  configuration?
-- Which performance optimizations, if any, are justified after functional
-  correctness is verified?
-- If later milestones introduce memory masters beyond the current CPU, GPU,
-  and DMA set, what extensions to the selected three-way arbitration policy
-  are justified?
+Milestone 4 and later integration resolve the initial SDRAM controller,
+physical address transformation, current 20 MHz controller clock, top-level
+clock-generation method, initialization timing, refresh policy, CAS behavior,
+installed-size handling, and conservative transaction sequencing. The selected
+contract is documented in `docs/SDRAM_ARCHITECTURE.md`.
+
+Milestone 6 resolves system-level CPU/GPU/DMA scheduling as deterministic
+non-preemptive three-way round-robin arbitration.
+
+Remaining questions are physical validation questions: whether Quartus timing
+analysis or real hardware requires changes to the conservative timing/clock
+relationship, and whether later performance work justifies bursts or other
+bandwidth optimizations.
 
 ### 2D GPU Organization
 
-- How are tilemaps, sprite engines, palettes, scroll registers, and priority logic organized in the fixed-function 2D block? Exact register counts and memory widths remain TBD.
+Milestone 5 resolves the selected initial 2D organization: one 8 x 8 RGB565
+tile/background renderer, one row-major tilemap layer, programmable external
+SDRAM tilemap/tile-data/framebuffer bases, programmable map dimensions, and
+deterministic linear framebuffer output.
+
+The complete contract is documented in `docs/GPU_2D_ARCHITECTURE.md`.
+
+Sprites, additional scrolling layers, palette engines, general blitting,
+priority systems, and other richer future 2D features remain optional future
+extensions rather than unresolved requirements for the verified initial
+engine.
 
 ### Fixed-Function 3D Organization
 
@@ -472,8 +526,14 @@ M10A resolves the initial 3D organization. A new `jupiter_gpu_3d` engine is inte
 
 ### HPS-Assisted Storage / Networking / Media Interfaces
 
-- When/if implemented, which host-facing services the MiSTer HPS processor provides (file system access, save data, networking, media) over which protocols remain TBD.
+M11A selects no new HPS-assisted storage, networking, media, runtime
+file-loading, or save-data protocol for the initial release baseline.
+
+Future host-facing services remain optional. If one is later selected, its
+actual MiSTer transport, software-visible protocol, OSD behavior, FPGA/HPS
+boundary, and deterministic tests must be documented before it becomes part of
+Jupiter.
 
 ---
 
-*This architecture document is written as a living document. Sections marked "PROPOSED" may change significantly as design decisions are finalized and RTL implementation commences.*
+*This architecture document is a living record. Completed milestone selections describe the verified implemented baseline; explicitly future, optional, or validation-dependent items remain open until supported by implementation and evidence.*
