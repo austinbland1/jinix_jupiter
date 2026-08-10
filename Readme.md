@@ -5,7 +5,7 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
 > **Current branch:** `milestone-10`
-> **Current checkpoint:** Milestone 11 release integration is underway. M11A audits the production source graph, finalizes implemented architecture descriptions, selects no new optional HPS service for the initial release baseline, and documents the current Quartus, hardware-validation, and framebuffer-scanout limitations.
+> **Current checkpoint:** Milestone 11 release integration is underway. M11B integrates production framebuffer scanout through the Jupiter system and MiSTer-facing RGB outputs. M11C synchronizes release documentation and validation gates while Quartus synthesis and physical hardware validation remain unavailable on the audited development machine.
 > **Verified predecessor:** `m9-verified` = `c989b080071be8336211f21dda52cdb91d266ee7`
 ---
 
@@ -23,7 +23,7 @@ Jupiter is **not an emulator of an existing console**. It is being designed as i
 | 7 | PCM audio | **Verified in simulation — `m7-verified`** |
 | 8 | Controllers and core peripherals | **Verified in simulation — `m8-verified`** |
 | 9 | BIOS and host development tools | **Complete — M9D acceptance verified** |
-| 10+ | 3D, HPS services, later platform work | Not yet implemented |
+| 10-11 | Fixed-function 3D, framebuffer scanout, release integration | Implemented through the current M11B checkpoint; optional HPS services remain unselected |
 Milestones are developed incrementally with deterministic simulation coverage. Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.
 
 ---
@@ -48,7 +48,7 @@ The verified design currently contains:
 - signed stereo audio integrated through the MiSTer-facing `AUDIO_L`, `AUDIO_R`, `AUDIO_S`, and `AUDIO_MIX` ports;
 - automated Icarus Verilog simulation regressions covering the implemented CPU, memory, SDRAM, GPU, DMA, audio, contention, and production audio-integration paths.
 
-The existing template/demo video path is still preserved as the live MiSTer-facing video producer. The Milestone 5 GPU is currently verified by rendering into an SDRAM framebuffer; presenting that framebuffer as the final live display is a later integration step.
+Milestone 11B replaces the inherited demo-video producer with Jupiter's production framebuffer scanout. The 2D and 3D engines render RGB565 framebuffers in external SDRAM, `jupiter_video_scanout` fetches the selected display framebuffer, and `Template.sv` maps the resulting RGB888 channels and timing directly to the MiSTer-facing video outputs.
 
 ---
 
@@ -249,7 +249,7 @@ Individual milestone/focused tests are also exposed through `sim/Makefile`.
 
 Some inherited template modules require simulation-only compatibility stubs under `sim/`. Those stubs are not included in the synthesis QIP.
 
-Known inherited warnings in the template demo-video path are intentionally not treated as Jupiter functional failures.
+Known inherited framework/template compatibility warnings are not treated as Jupiter functional failures unless they affect the integrated Jupiter production path.
 
 ---
 

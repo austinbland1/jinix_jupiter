@@ -2,7 +2,7 @@
 
 <!--
  DO NOT CONFIRM THIS SECTION AS ACCURATE WITHOUT ACTUALLY READING THE SOURCE.
- This document records the implemented Jupiter architecture through Milestone 10 and the remaining Milestone 11 integration and release-validation boundaries.
+ This document records the implemented Jupiter architecture through Milestone 11B and the remaining Milestone 11 release-validation boundaries.
 -->
 
 ## Table of Contents
@@ -17,7 +17,7 @@
 
 ### Source of Truth
 
-The repository currently contains a minimal MiSTer FPGA "empty core" template.
+The repository uses the inherited MiSTer template/framework as the platform shell for the integrated Jupiter RTL.
 All verified facts below are derived from reading the actual source files:
 `Template.sv`, `sys_top.v`, `emu_ports.vh`, `hps_io.sv`, `pll.v`, `files.qip`,
 and `rtl/mycore.v`.
@@ -48,32 +48,36 @@ and `rtl/mycore.v`.
 - A PLL instantiates via `pll.v` (Altera MegaWizard, Cyclone V family) and produces `clk_sys`, the global system clock fed to both `hps_io` and the user core.
 - This is the single clock domain for all MiSTer framework logic unless the core independently generates additional clocks.
 
-### Existing Video Path (as instantiated in the template)
+### Production Video Path
 
-The template video chain flows as follows:
+Milestone 11B integrates Jupiter framebuffer scanout as the production visible-video path.
 
-1. **Core output:** `mycore.v` drives an 8-bit parallel video bus (`video[7:0]`) and horizontal/vertical blanking signals (`HBlank`, `VBlank`).
-2. **Video routing to SCART/RGb pins:**
- - `VGA_DE = ~(HBlank | VBlank)` — display enable goes high during active pixels.
- - `VGA_HS` driven from core `HSync`.
- - `VGA_VS` driven from core `VSync`.
-3. **Color channel mapping from the 8-bit video word:**
+1. `jupiter_video_scanout` reads the selected linear RGB565 framebuffer from
+   external SDRAM through the dedicated second-stage normal/scanout SDRAM
+   arbiter.
+2. `jupiter_cpu_subsystem` owns the scanout MMIO window at
+   `0x00001180-0x000011BF`, derives the installed-SDRAM bounds, and exports the
+   scanout timing plus RGB888 channels.
+3. `jupiter_system` propagates `ce_pix`, blanking, sync, and `video_r/g/b`
+   directly from the integrated scanout engine. It no longer instantiates
+   `mycore video_demo` as the production video source.
+4. `Template.sv` connects the Jupiter RGB888 channels directly to
+   `VGA_R/G/B`, uses Jupiter `ce_pix` for `CE_PIXEL`, derives `VGA_DE` from
+   `HBlank | VBlank`, and propagates Jupiter sync.
+5. RGB565-to-RGB888 expansion, line buffering, blanking behavior, underflow
+   behavior, MMIO semantics, and deterministic fetch rules are documented in
+   `docs/VIDEO_SCANOUT_ARCHITECTURE.md` and covered by simulation.
+6. Jupiter signed stereo PCM is propagated through `jupiter_system` and the
+   existing MiSTer audio-facing outputs; audio is not tied to silence by the
+   production wrapper.
 
-| Color Index (`col`) | R | G | B | Visual  |
-|---------------------|---|---|---|--------|
-| 0 | video | video |  video | White-on-black |
-| 1 | video | '0 | '0 | Red-only |
-| 2 | '0 |  video | '0 | Green-only |
-| 3 | '0 | '0 | video | Blue-only |
-
-4. Color channels are 8-bit per channel (`VGA_R[7:0]`, `VGA_G[7:0]`, `VGA_B[7:0]`). Template.sv drives the full 8-bit video value into these outputs.
-5. **Audio:** Both `AUDIO_L` and `AUDIO_R` are tied to `'0`. Audio is entirely disabled in the template.
+The integrated video path is simulation-verified. Quartus timing and physical
+display compatibility remain separate release-validation items.
 
 ### SDRAM / DDR Interfaces
 
-- The template currently drives the primary external `SDRAM_*` pins to `'Z`
-  because the Jupiter SDRAM controller has not yet reached top-level
-  integration.
+- `Template.sv` connects the Jupiter-owned SDR SDRAM controller through
+  `jupiter_system` to the primary external `SDRAM_*` pins.
 - `sys/emu_ports.vh` exposes the primary low-latency external SDR SDRAM
   interface, including a 16-bit `SDRAM_DQ` bus, address and bank signals,
   byte masks, clock/enable, and SDRAM command signals.

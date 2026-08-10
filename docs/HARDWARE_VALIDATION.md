@@ -36,9 +36,8 @@ Each hardware-validation run must record:
 
 Verify stable video timing and visible output on the target display.
 
-When Jupiter framebuffer scanout is integrated, verify known 2D and 3D
-reference scenes on physical output rather than relying on the inherited demo
-video path.
+Verify known 2D and 3D reference scenes through the integrated framebuffer
+scanout on physical output and compare them with the simulation references.
 
 Record any resolution, crop, sync, color, or display-compatibility problem.
 
@@ -65,13 +64,13 @@ does not hang or visibly corrupt unrelated state.
 
 ### 7. 2D Graphics
 
-After physical framebuffer scanout exists, render deterministic tilemap
-references and compare visible output with the simulation reference.
+Render deterministic tilemap references through the integrated framebuffer
+scanout and compare visible output with the simulation reference.
 
 ### 8. 3D Graphics
 
-After physical framebuffer scanout exists, render deterministic flat,
-depth-tested, textured, perspective-correct, and blended reference triangles.
+Render deterministic flat, depth-tested, textured, perspective-correct, and
+blended reference triangles through the integrated framebuffer scanout.
 
 ### 9. Extended Stability
 

@@ -591,3 +591,14 @@ clean: m11b3b-clean
 
 m11b3b-clean:
 	rm -f jupiter_system_video.vvp
+
+# ============================================================
+# Milestone 11C - release documentation / acceptance audit
+# ============================================================
+
+.PHONY: m11c-test
+
+test: m11c-test
+
+m11c-test: m11b3b-test
+	python3 -B check_m11c_release_acceptance.py

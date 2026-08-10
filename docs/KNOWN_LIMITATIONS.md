@@ -10,17 +10,22 @@ fitter, timing-closure, Fmax, or FPGA-resource result.
 No FPGA image produced from the M11A baseline has yet been validated on a
 SuperStation One or other MiSTer-compatible target.
 
-## Video Integration
+## Video Validation
 
-The production `jupiter_system` still preserves the inherited `mycore
-video_demo` path for visible video timing/output.
+Production framebuffer scanout is integrated and verified in simulation.
 
-The implemented Jupiter 2D and 3D engines render deterministic framebuffer
-content and are extensively verified in simulation, but the current top-level
-video output is not yet a scanout of Jupiter's rendered framebuffer.
+`jupiter_video_scanout` fetches the selected RGB565 framebuffer through the
+production SDRAM path, `jupiter_system` propagates its timing and RGB888
+channels, and `Template.sv` maps those channels directly to the MiSTer-facing
+video outputs.
 
-This is an explicit Milestone 11 integration item, not a claim of completed
-Jupiter gameplay video output.
+The remaining limitation is validation rather than missing RTL integration:
+the current development machine has no verified Quartus synthesis/timing
+result, and the integrated video path has not yet been exercised on physical
+SuperStation One or MiSTer-compatible display hardware.
+
+No claim of physical display compatibility, timing closure, or hardware-visible
+2D/3D output is made until actual build and hardware evidence exists.
 
 ## Quartus-Generated Framework Inputs
 

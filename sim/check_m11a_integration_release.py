@@ -378,7 +378,7 @@ for phrase in [
 
 for phrase in [
     "no verified Quartus synthesis",
-    "not yet a scanout of Jupiter's rendered framebuffer",
+    "framebuffer scanout is integrated and verified in simulation",
     "generated `build_id.v`",
 ]:
     check(

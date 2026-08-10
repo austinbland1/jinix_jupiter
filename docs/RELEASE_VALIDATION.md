@@ -7,19 +7,33 @@ or hardware results.
 
 M11A regression result: PASS — the M11A-specific gate and the complete `make -C sim test` repository regression both completed successfully before this validation record was finalized.
 
+## M11B Integration Validation
+
+M11B framebuffer-scanout integration result: PASS.
+
+The production path now includes the scanout MMIO/timing shell, deterministic
+line-buffer framebuffer fetch, second-stage normal/scanout SDRAM arbitration,
+system-level scanout integration, and direct MiSTer-facing RGB888/timing
+propagation.
+
+The dedicated production-boundary regression verifies known RGB565 red, green,
+blue, and white pixels through `jupiter_system`, and the complete repository
+regression passed after the visible-video cutover.
+
+This is simulation evidence only. It is not a claim of Quartus synthesis,
+timing closure, FPGA-image generation, or physical display validation.
+
 ## Automated Simulation
 
 The authoritative repository regression command is:
 
     make -C sim test
 
-M11A will add an automated static integration/release checker before its
-regression closeout. A PASS entry will be recorded only after both the
-M11A-specific gate and the complete repository regression finish successfully.
+The repository regression includes the historical M11A integration/release gate, the M11B scanout integration tests, and the M11C release-acceptance checker. Release-validation claims must remain consistent with those automated gates.
 
 ## Quartus Availability
 
-Quartus availability: UNAVAILABLE on the audited M11A development machine.
+Quartus availability: UNAVAILABLE on the current audited development machine.
 
 The audit found all of the following commands absent:
 
@@ -30,7 +44,7 @@ The audit found all of the following commands absent:
 - `quartus_asm`
 - `quartus_cpf`
 
-Therefore M11A makes no claim of:
+Therefore the current Milestone 11 checkpoint makes no claim of:
 
 - Quartus synthesis success;
 - fitter success;
@@ -53,18 +67,18 @@ simulation harnesses use their established compatibility environment.
 
 ## Hardware Validation
 
-Hardware validation status: NOT PERFORMED for the M11A baseline.
+Hardware validation status: NOT PERFORMED for the current Milestone 11 checkpoint.
 
 No successful SuperStation One or MiSTer-compatible hardware operation is
-claimed by M11A.
+currently claimed.
 
 The procedure to use when an actual FPGA image becomes available is recorded
 in `docs/HARDWARE_VALIDATION.md`.
 
 ## Optional HPS Services
 
-M11A selects no new optional HPS storage, networking, media, file-loading, or
-save-data service for the initial release baseline.
+Milestone 11 currently selects no new optional HPS storage, networking, media,
+file-loading, or save-data service for the initial release baseline.
 
 The existing MiSTer `hps_io` framework boundary remains available for the
 already integrated host-facing framework functions, including controller
