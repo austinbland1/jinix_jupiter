@@ -64,7 +64,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test clean
 
-test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test m9c-test m10b1-test m10b2-test
+test: m1-test cpu-test m3-test m4-test m5b-test m5c-test m5d-test m5e-test m6b-test m6c-test m6d-test m6e-test m7b-test m7c-test m8b-test m9b-test m9c-test m10b1-test m10b2-test m10c-test
 
 m1-test: core-test system-test stub-test
 
@@ -78,11 +78,13 @@ m4-test: interconnect-test cpu-subsystem-test system-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
 	cpu-sdram-test
 
-.PHONY: m10b1-test m10b2-test gpu-3d-test gpu-2d3d-arbiter-test gpu-3d-mmio-test gpu-3d-vertex-test gpu-3d-triangle-test gpu-3d-raster-integration-test gpu-3d-flat-test
+.PHONY: m10b1-test m10b2-test m10c-test gpu-3d-test gpu-2d3d-arbiter-test gpu-3d-mmio-test gpu-3d-vertex-test gpu-3d-triangle-test gpu-3d-raster-integration-test gpu-3d-flat-test gpu-3d-depth-test gpu-3d-depth-integration-test gpu-3d-depth-overlap-test
 
 m10b1-test: gpu-3d-test gpu-2d3d-arbiter-test gpu-3d-mmio-test
 
 m10b2-test: gpu-3d-vertex-test gpu-3d-triangle-test gpu-3d-raster-integration-test gpu-3d-flat-test
+
+m10c-test: gpu-3d-depth-test gpu-3d-depth-integration-test gpu-3d-depth-overlap-test
 
 m5b-test: gpu-regs-test cpu-gpu-mmio-test
 
@@ -341,7 +343,20 @@ gpu-3d-flat-test:
 	iverilog -g2012 -s jupiter_gpu_3d_flat_tb -o jupiter_gpu_3d_flat.vvp $(GPU_3D_RTL) jupiter_gpu_3d_flat_tb.sv
 	vvp -n jupiter_gpu_3d_flat.vvp
 
+gpu-3d-depth-test:
+	iverilog -g2012 -s jupiter_gpu_3d_depth_tb -o jupiter_gpu_3d_depth.vvp $(GPU_3D_RASTER_RTL) jupiter_gpu_3d_depth_tb.sv
+	vvp -n jupiter_gpu_3d_depth.vvp
+
+gpu-3d-depth-integration-test:
+	iverilog -g2012 -s jupiter_gpu_3d_depth_integration_tb -o jupiter_gpu_3d_depth_integration.vvp $(GPU_3D_RTL) jupiter_gpu_3d_depth_integration_tb.sv
+	vvp -n jupiter_gpu_3d_depth_integration.vvp
+
+gpu-3d-depth-overlap-test:
+	iverilog -g2012 -s jupiter_gpu_3d_depth_overlap_tb -o jupiter_gpu_3d_depth_overlap.vvp $(GPU_3D_RTL) jupiter_gpu_3d_depth_overlap_tb.sv
+	vvp -n jupiter_gpu_3d_depth_overlap.vvp
+
 clean:
+	rm -f jupiter_gpu_3d_depth.vvp jupiter_gpu_3d_depth_integration.vvp jupiter_gpu_3d_depth_overlap.vvp
 	rm -f jupiter_gpu_3d_vertex.vvp jupiter_gpu_3d_triangle.vvp jupiter_gpu_3d_raster_integration.vvp jupiter_gpu_3d_flat.vvp
 	rm -f jupiter_gpu_3d.vvp jupiter_gpu_2d3d_arbiter.vvp jupiter_gpu_3d_mmio.vvp
 	rm -f m9c_bios.hex m9c_program.hex m9c_system.mem jupiter_boot_image.vvp

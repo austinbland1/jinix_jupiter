@@ -80,6 +80,14 @@ module jupiter_gpu_3d
     reg [4:0] vertex_word_index;
     reg [31:0] vertex_words [0:17];
 
+    localparam [2:0] FRAGMENT_IDLE        = 3'd0;
+    localparam [2:0] FRAGMENT_DEPTH_READ  = 3'd1;
+    localparam [2:0] FRAGMENT_DEPTH_WRITE = 3'd2;
+    localparam [2:0] FRAGMENT_FRAMEBUFFER = 3'd3;
+    localparam [2:0] FRAGMENT_REJECT      = 3'd4;
+
+    reg [2:0] fragment_state;
+
     integer vertex_clear_index;
 
     wire fetched_one_over_w_valid =
@@ -100,6 +108,7 @@ module jupiter_gpu_3d
     wire        raster_covered_valid;
     wire [15:0] raster_covered_x;
     wire [15:0] raster_covered_y;
+    wire [15:0] raster_covered_z;
     wire [31:0] raster_coverage_count;
     wire [31:0] raster_sample_count;
 
@@ -116,11 +125,43 @@ module jupiter_gpu_3d
     wire framebuffer_upper_half =
         framebuffer_pixel_index[0];
 
-    wire framebuffer_write_valid =
+    wire active_depth_enabled =
+        active_mode[1];
+
+    wire direct_framebuffer_write_valid =
         busy &&
         (fetch_state == FETCH_RASTER) &&
         raster_busy &&
-        raster_covered_valid;
+        raster_covered_valid &&
+        !active_depth_enabled;
+
+    wire depth_read_valid =
+        busy &&
+        (fetch_state == FETCH_RASTER) &&
+        raster_busy &&
+        raster_covered_valid &&
+        active_depth_enabled &&
+        (fragment_state == FRAGMENT_DEPTH_READ);
+
+    wire depth_write_valid =
+        busy &&
+        (fetch_state == FETCH_RASTER) &&
+        raster_busy &&
+        raster_covered_valid &&
+        active_depth_enabled &&
+        (fragment_state == FRAGMENT_DEPTH_WRITE);
+
+    wire depth_framebuffer_write_valid =
+        busy &&
+        (fetch_state == FETCH_RASTER) &&
+        raster_busy &&
+        raster_covered_valid &&
+        active_depth_enabled &&
+        (fragment_state == FRAGMENT_FRAMEBUFFER);
+
+    wire framebuffer_write_valid =
+        direct_framebuffer_write_valid ||
+        depth_framebuffer_write_valid;
 
     wire [31:0] framebuffer_write_addr =
         active_framebuffer_base +
@@ -145,9 +186,48 @@ module jupiter_gpu_3d
         4'b1100 :
         4'b0011;
 
+    wire [31:0] depth_access_addr =
+        active_depth_base +
+        {
+            framebuffer_byte_offset[31:2],
+            2'b00
+        };
+
+    wire [15:0] depth_read_value =
+        framebuffer_upper_half ?
+        sdram_rdata[31:16] :
+        sdram_rdata[15:0];
+
+    wire [31:0] depth_write_data =
+        framebuffer_upper_half ?
+        {
+            raster_covered_z,
+            16'h0000
+        } :
+        {
+            16'h0000,
+            raster_covered_z
+        };
+
+    wire [3:0] depth_write_wstrb =
+        framebuffer_upper_half ?
+        4'b1100 :
+        4'b0011;
+
     wire raster_covered_ready =
-        framebuffer_write_valid &&
-        sdram_ready;
+        (
+            direct_framebuffer_write_valid &&
+            sdram_ready
+        ) ||
+        (
+            active_depth_enabled &&
+            raster_covered_valid &&
+            (fragment_state == FRAGMENT_REJECT)
+        ) ||
+        (
+            depth_framebuffer_write_valid &&
+            sdram_ready
+        );
 
     wire [15:0] target_width  = target_size_reg[15:0];
     wire [15:0] target_height = target_size_reg[31:16];
@@ -266,18 +346,21 @@ module jupiter_gpu_3d
     // The selected GPU MMIO interface inserts no wait states.
     assign ready = valid;
 
-    // Vertex fetches are aligned 32-bit reads. Covered flat fragments are
-    // aligned 32-bit write transactions using byte strobes to select the
-    // addressed RGB565 halfword.
+    // Vertex fetches and depth tests are aligned 32-bit reads.
+    // Depth and framebuffer updates remain aligned 32-bit transactions
+    // selecting one 16-bit destination with byte strobes.
     wire vertex_fetch_valid =
         busy &&
         (fetch_state == FETCH_WORD);
 
     assign sdram_valid =
         vertex_fetch_valid ||
+        depth_read_valid ||
+        depth_write_valid ||
         framebuffer_write_valid;
 
     assign sdram_write =
+        depth_write_valid ||
         framebuffer_write_valid;
 
     assign sdram_addr =
@@ -286,16 +369,24 @@ module jupiter_gpu_3d
             active_vertex_base +
             {25'd0, vertex_word_index, 2'b00}
         ) :
+        depth_read_valid ?
+        depth_access_addr :
+        depth_write_valid ?
+        depth_access_addr :
         framebuffer_write_valid ?
         framebuffer_write_addr :
         32'h00000000;
 
     assign sdram_wdata =
+        depth_write_valid ?
+        depth_write_data :
         framebuffer_write_valid ?
         framebuffer_write_data :
         32'h00000000;
 
     assign sdram_wstrb =
+        depth_write_valid ?
+        depth_write_wstrb :
         framebuffer_write_valid ?
         framebuffer_write_wstrb :
         4'b0000;
@@ -312,10 +403,13 @@ module jupiter_gpu_3d
 
         .v0_x           (vertex_words[0]),
         .v0_y           (vertex_words[1]),
+        .v0_z           (vertex_words[2][15:0]),
         .v1_x           (vertex_words[6]),
         .v1_y           (vertex_words[7]),
+        .v1_z           (vertex_words[8][15:0]),
         .v2_x           (vertex_words[12]),
         .v2_y           (vertex_words[13]),
+        .v2_z           (vertex_words[14][15:0]),
 
         .busy           (raster_busy),
         .done           (raster_done),
@@ -324,6 +418,7 @@ module jupiter_gpu_3d
         .covered_valid  (raster_covered_valid),
         .covered_x      (raster_covered_x),
         .covered_y      (raster_covered_y),
+        .covered_z      (raster_covered_z),
 
         .coverage_count (raster_coverage_count),
         .sample_count   (raster_sample_count)
@@ -366,6 +461,60 @@ module jupiter_gpu_3d
 
                 default:
                     rdata = 32'h00000000;
+            endcase
+        end
+    end
+
+    // Depth-enabled fragments remain held by the raster valid/ready
+    // interface through the entire transaction sequence:
+    //
+    //   read stored depth
+    //   strict LESS compare
+    //   write new depth on pass
+    //   write framebuffer on pass
+    //   release immediately on fail/equal
+    always @(posedge clk) begin
+        if (reset) begin
+            fragment_state <= FRAGMENT_IDLE;
+        end else if (
+            !busy ||
+            (fetch_state != FETCH_RASTER) ||
+            !active_depth_enabled
+        ) begin
+            fragment_state <= FRAGMENT_IDLE;
+        end else begin
+            case (fragment_state)
+                FRAGMENT_IDLE: begin
+                    if (raster_covered_valid)
+                        fragment_state <= FRAGMENT_DEPTH_READ;
+                end
+
+                FRAGMENT_DEPTH_READ: begin
+                    if (sdram_ready) begin
+                        if (raster_covered_z < depth_read_value)
+                            fragment_state <= FRAGMENT_DEPTH_WRITE;
+                        else
+                            fragment_state <= FRAGMENT_REJECT;
+                    end
+                end
+
+                FRAGMENT_DEPTH_WRITE: begin
+                    if (sdram_ready)
+                        fragment_state <= FRAGMENT_FRAMEBUFFER;
+                end
+
+                FRAGMENT_FRAMEBUFFER: begin
+                    if (sdram_ready)
+                        fragment_state <= FRAGMENT_IDLE;
+                end
+
+                FRAGMENT_REJECT: begin
+                    fragment_state <= FRAGMENT_IDLE;
+                end
+
+                default: begin
+                    fragment_state <= FRAGMENT_IDLE;
+                end
             endcase
         end
     end

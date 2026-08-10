@@ -55,10 +55,13 @@ module jupiter_gpu_3d_triangle_tb;
 
         .v0_x            (v0_x),
         .v0_y            (v0_y),
+        .v0_z            (16'h0000),
         .v1_x            (v1_x),
         .v1_y            (v1_y),
+        .v1_z            (16'h0000),
         .v2_x            (v2_x),
         .v2_y            (v2_y),
+        .v2_z            (16'h0000),
 
         .busy            (busy),
         .done            (done),
@@ -67,6 +70,7 @@ module jupiter_gpu_3d_triangle_tb;
         .covered_valid   (covered_valid),
         .covered_x       (covered_x),
         .covered_y       (covered_y),
+        .covered_z       (),
 
         .coverage_count  (coverage_count),
         .sample_count    (sample_count)

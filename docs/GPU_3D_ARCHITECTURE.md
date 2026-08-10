@@ -252,14 +252,46 @@ integration, and six-pixel flat framebuffer output. `m10b2-test` is part of
 the normal simulation regression, and the complete `make -C sim test`
 repository suite passes with M10B-2 registered.
 
-M10C adds the selected 16-bit strict-LESS depth-buffer path.
+M10C implements the selected 16-bit strict-LESS depth-buffer path described below.
 
 
 Add vertex fetch, top-left rasterization, target clipping, and flat RGB565 framebuffer writes with deterministic reference coverage.
 
 ### M10C - Depth
 
-Add U0.16 depth interpolation, strict LESS testing, depth reads and writes, and sentinel memory-safety tests.
+**Implementation status: complete and fully regressed.**
+
+M10C implements the selected depth-buffer path while preserving the
+depth-disabled M10B-2 rendering behavior:
+
+- the raster child screen-linearly interpolates unsigned U0.16 Z from the
+  three fetched vertex depths and exports the resulting depth with each
+  covered X/Y fragment;
+- covered X/Y/Z remain stable under fragment backpressure until the
+  fragment transaction is accepted;
+- depth-enabled fragments issue one aligned 32-bit read from the selected
+  linear 16-bit depth buffer;
+- the fragment passes only when `new_depth < stored_depth`; equal and
+  farther depth values are rejected;
+- a passing fragment updates the selected depth halfword first and then
+  writes the RGB565 framebuffer halfword;
+- a rejected fragment updates neither depth nor framebuffer;
+- halfword depth and framebuffer writes use only `0011` or `1100` byte
+  strobes on aligned 32-bit SDRAM transactions;
+- two overlapping-triangle draw orders deterministically resolve to the
+  nearer triangle;
+- the stateful overlap reference observes no accesses outside the selected
+  vertex, depth, and framebuffer resources, with framebuffer/depth boundary
+  sentinels and an unrelated SDRAM sentinel remaining unchanged.
+
+The deterministic M10C references verify six exact interpolated Z values,
+strict-LESS pass/reject behavior including equal-depth rejection, stalled
+depth transactions, overlapping geometry in both draw orders, and graphics
+memory safety. `m10c-test` is part of the normal simulation regression, the
+Milestone 5 compatibility suite passes, and the complete `make -C sim test`
+repository regression passes with M10C registered.
+
+M10D adds the selected texture-mapping and blending paths.
 
 ### M10D - Perspective texture and blending
 

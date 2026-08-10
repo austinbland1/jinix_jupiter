@@ -10,10 +10,13 @@ module jupiter_gpu_3d_raster
 
     input  wire signed [31:0] v0_x,
     input  wire signed [31:0] v0_y,
+    input  wire        [15:0] v0_z,
     input  wire signed [31:0] v1_x,
     input  wire signed [31:0] v1_y,
+    input  wire        [15:0] v1_z,
     input  wire signed [31:0] v2_x,
     input  wire signed [31:0] v2_y,
+    input  wire        [15:0] v2_z,
 
     output reg                busy,
     output reg                done,
@@ -24,6 +27,7 @@ module jupiter_gpu_3d_raster
     output reg                covered_valid,
     output reg         [15:0] covered_x,
     output reg         [15:0] covered_y,
+    output reg         [15:0] covered_z,
 
     // Deterministic command-local counters.
     output reg         [31:0] coverage_count,
@@ -41,10 +45,13 @@ module jupiter_gpu_3d_raster
 
     reg signed [31:0] active_v0_x;
     reg signed [31:0] active_v0_y;
+    reg        [15:0] active_v0_z;
     reg signed [31:0] active_v1_x;
     reg signed [31:0] active_v1_y;
+    reg        [15:0] active_v1_z;
     reg signed [31:0] active_v2_x;
     reg signed [31:0] active_v2_y;
+    reg        [15:0] active_v2_z;
 
     reg [15:0] raster_x;
     reg [15:0] raster_y;
@@ -179,6 +186,73 @@ module jupiter_gpu_3d_raster
                     (dy == 33'sd0) &&
                     (dx < 33'sd0)
                 );
+        end
+    endfunction
+
+    // Screen-linear U0.16 depth interpolation.
+    //
+    // For the directed-edge convention used below:
+    //
+    //   vertex 0 weight = edge(v1,v2,p)
+    //   vertex 1 weight = edge(v2,v0,p)
+    //   vertex 2 weight = edge(v0,v1,p)
+    //
+    // Covered samples have nonnegative weights and positive area.
+    // Division truncates toward zero; because all operands are unsigned
+    // in this path, that is deterministic floor division.
+    function automatic [15:0] interpolate_depth;
+        input        [15:0] z0;
+        input        [15:0] z1;
+        input        [15:0] z2;
+        input signed [66:0] weight0;
+        input signed [66:0] weight1;
+        input signed [66:0] weight2;
+        input signed [66:0] area;
+
+        reg [82:0] product0;
+        reg [82:0] product1;
+        reg [82:0] product2;
+        reg [84:0] numerator;
+        reg [84:0] quotient;
+
+        begin
+            product0 = 83'd0;
+            product1 = 83'd0;
+            product2 = 83'd0;
+            numerator = 85'd0;
+            quotient = 85'd0;
+
+            if (
+                (area > 67'sd0) &&
+                (weight0 >= 67'sd0) &&
+                (weight1 >= 67'sd0) &&
+                (weight2 >= 67'sd0)
+            ) begin
+                product0 =
+                    z0 * $unsigned(weight0);
+
+                product1 =
+                    z1 * $unsigned(weight1);
+
+                product2 =
+                    z2 * $unsigned(weight2);
+
+                numerator =
+                    {2'b00, product0} +
+                    {2'b00, product1} +
+                    {2'b00, product2};
+
+                quotient =
+                    numerator /
+                    $unsigned(area);
+
+                if (quotient > 85'd65535)
+                    interpolate_depth = 16'hFFFF;
+                else
+                    interpolate_depth = quotient[15:0];
+            end else begin
+                interpolate_depth = 16'h0000;
+            end
         end
     endfunction
 
@@ -371,6 +445,17 @@ module jupiter_gpu_3d_raster
         edge1_pass &&
         edge2_pass;
 
+    wire [15:0] sample_depth =
+        interpolate_depth(
+            active_v0_z,
+            active_v1_z,
+            active_v2_z,
+            edge1,
+            edge2,
+            edge0,
+            triangle_area
+        );
+
     // --------------------------------------------------------
     // Raster state machine
     // --------------------------------------------------------
@@ -384,10 +469,13 @@ module jupiter_gpu_3d_raster
 
             active_v0_x <= 32'sd0;
             active_v0_y <= 32'sd0;
+            active_v0_z <= 16'd0;
             active_v1_x <= 32'sd0;
             active_v1_y <= 32'sd0;
+            active_v1_z <= 16'd0;
             active_v2_x <= 32'sd0;
             active_v2_y <= 32'sd0;
+            active_v2_z <= 16'd0;
 
             raster_x <= 16'd0;
             raster_y <= 16'd0;
@@ -403,6 +491,7 @@ module jupiter_gpu_3d_raster
             covered_valid <= 1'b0;
             covered_x     <= 16'd0;
             covered_y     <= 16'd0;
+            covered_z     <= 16'd0;
 
             coverage_count <= 32'd0;
             sample_count   <= 32'd0;
@@ -419,10 +508,13 @@ module jupiter_gpu_3d_raster
 
                         active_v0_x <= v0_x;
                         active_v0_y <= v0_y;
+                        active_v0_z <= v0_z;
                         active_v1_x <= v1_x;
                         active_v1_y <= v1_y;
+                        active_v1_z <= v1_z;
                         active_v2_x <= v2_x;
                         active_v2_y <= v2_y;
+                        active_v2_z <= v2_z;
 
                         raster_x <= 16'd0;
                         raster_y <= 16'd0;
@@ -498,6 +590,7 @@ module jupiter_gpu_3d_raster
                         covered_valid <= 1'b1;
                         covered_x     <= raster_x;
                         covered_y     <= raster_y;
+                        covered_z     <= sample_depth;
                     end else begin
                         sample_count <=
                             sample_count + 32'd1;
