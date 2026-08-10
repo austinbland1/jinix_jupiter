@@ -67,9 +67,87 @@ module jupiter_gpu_3d
     reg done;
     reg error;
 
-    // M10B-1 contains no rasterizer. A valid command occupies the shell for
-    // one bounded interval and then completes without SDRAM traffic.
-    reg shell_pending;
+    // M10B-2 begins the renderer with the fixed 72-byte vertex fetch.
+    //
+    // One triangle contains eighteen consecutive aligned 32-bit words.
+    // Rasterization is intentionally deferred until the next sub-checkpoint.
+    localparam [1:0] FETCH_IDLE     = 2'd0;
+    localparam [1:0] FETCH_WORD     = 2'd1;
+    localparam [1:0] FETCH_VALIDATE = 2'd2;
+    localparam [1:0] FETCH_RASTER   = 2'd3;
+
+    reg [1:0] fetch_state;
+    reg [4:0] vertex_word_index;
+    reg [31:0] vertex_words [0:17];
+
+    integer vertex_clear_index;
+
+    wire fetched_one_over_w_valid =
+        (vertex_words[5]  != 32'h00000000) &&
+        (vertex_words[11] != 32'h00000000) &&
+        (vertex_words[17] != 32'h00000000);
+
+    // M10B-2c feeds the fetched post-transform X/Y words into the already
+    // verified standalone raster engine. Covered samples are observable here
+    // but do not generate framebuffer traffic until M10B-2d.
+    wire raster_start =
+        busy &&
+        (fetch_state == FETCH_VALIDATE) &&
+        fetched_one_over_w_valid;
+
+    wire        raster_busy;
+    wire        raster_done;
+    wire        raster_covered_valid;
+    wire [15:0] raster_covered_x;
+    wire [15:0] raster_covered_y;
+    wire [31:0] raster_coverage_count;
+    wire [31:0] raster_sample_count;
+
+    wire [31:0] framebuffer_pixel_index =
+        (
+            raster_covered_y *
+            active_target_size[15:0]
+        ) +
+        raster_covered_x;
+
+    wire [31:0] framebuffer_byte_offset =
+        framebuffer_pixel_index << 1;
+
+    wire framebuffer_upper_half =
+        framebuffer_pixel_index[0];
+
+    wire framebuffer_write_valid =
+        busy &&
+        (fetch_state == FETCH_RASTER) &&
+        raster_busy &&
+        raster_covered_valid;
+
+    wire [31:0] framebuffer_write_addr =
+        active_framebuffer_base +
+        {
+            framebuffer_byte_offset[31:2],
+            2'b00
+        };
+
+    wire [31:0] framebuffer_write_data =
+        framebuffer_upper_half ?
+        {
+            active_flat_color[15:0],
+            16'h0000
+        } :
+        {
+            16'h0000,
+            active_flat_color[15:0]
+        };
+
+    wire [3:0] framebuffer_write_wstrb =
+        framebuffer_upper_half ?
+        4'b1100 :
+        4'b0011;
+
+    wire raster_covered_ready =
+        framebuffer_write_valid &&
+        sdram_ready;
 
     wire [15:0] target_width  = target_size_reg[15:0];
     wire [15:0] target_height = target_size_reg[31:16];
@@ -188,13 +266,68 @@ module jupiter_gpu_3d
     // The selected GPU MMIO interface inserts no wait states.
     assign ready = valid;
 
-    // M10B-1 establishes the future master interface but intentionally emits
-    // no graphics-memory traffic.
-    assign sdram_valid = 1'b0;
-    assign sdram_write = 1'b0;
-    assign sdram_addr  = 32'h00000000;
-    assign sdram_wdata = 32'h00000000;
-    assign sdram_wstrb = 4'b0000;
+    // Vertex fetches are aligned 32-bit reads. Covered flat fragments are
+    // aligned 32-bit write transactions using byte strobes to select the
+    // addressed RGB565 halfword.
+    wire vertex_fetch_valid =
+        busy &&
+        (fetch_state == FETCH_WORD);
+
+    assign sdram_valid =
+        vertex_fetch_valid ||
+        framebuffer_write_valid;
+
+    assign sdram_write =
+        framebuffer_write_valid;
+
+    assign sdram_addr =
+        vertex_fetch_valid ?
+        (
+            active_vertex_base +
+            {25'd0, vertex_word_index, 2'b00}
+        ) :
+        framebuffer_write_valid ?
+        framebuffer_write_addr :
+        32'h00000000;
+
+    assign sdram_wdata =
+        framebuffer_write_valid ?
+        framebuffer_write_data :
+        32'h00000000;
+
+    assign sdram_wstrb =
+        framebuffer_write_valid ?
+        framebuffer_write_wstrb :
+        4'b0000;
+
+    jupiter_gpu_3d_raster raster
+    (
+        .clk            (clk),
+        .reset          (reset),
+
+        .start          (raster_start),
+
+        .target_width   (active_target_size[15:0]),
+        .target_height  (active_target_size[31:16]),
+
+        .v0_x           (vertex_words[0]),
+        .v0_y           (vertex_words[1]),
+        .v1_x           (vertex_words[6]),
+        .v1_y           (vertex_words[7]),
+        .v2_x           (vertex_words[12]),
+        .v2_y           (vertex_words[13]),
+
+        .busy           (raster_busy),
+        .done           (raster_done),
+
+        .covered_ready  (raster_covered_ready),
+        .covered_valid  (raster_covered_valid),
+        .covered_x      (raster_covered_x),
+        .covered_y      (raster_covered_y),
+
+        .coverage_count (raster_coverage_count),
+        .sample_count   (raster_sample_count)
+    );
 
     always @(*) begin
         rdata = 32'h00000000;
@@ -259,16 +392,66 @@ module jupiter_gpu_3d
             active_blend_alpha      <= 32'h00000000;
             active_flat_color       <= 32'h00000000;
 
-            busy          <= 1'b0;
-            done          <= 1'b0;
-            error         <= 1'b0;
-            shell_pending <= 1'b0;
+            busy              <= 1'b0;
+            done              <= 1'b0;
+            error             <= 1'b0;
+            fetch_state       <= FETCH_IDLE;
+            vertex_word_index <= 5'd0;
+
+            for (
+                vertex_clear_index = 0;
+                vertex_clear_index < 18;
+                vertex_clear_index = vertex_clear_index + 1
+            ) begin
+                vertex_words[vertex_clear_index] <= 32'h00000000;
+            end
         end else begin
-            // A valid M10B-1 shell command completes without SDRAM traffic.
-            if (busy && shell_pending) begin
-                busy          <= 1'b0;
-                done          <= 1'b1;
-                shell_pending <= 1'b0;
+            if (busy) begin
+                case (fetch_state)
+                    FETCH_WORD: begin
+                        if (sdram_ready) begin
+                            vertex_words[vertex_word_index] <=
+                                sdram_rdata;
+
+                            if (vertex_word_index == 5'd17) begin
+                                fetch_state <= FETCH_VALIDATE;
+                            end else begin
+                                vertex_word_index <=
+                                    vertex_word_index + 5'd1;
+                            end
+                        end
+                    end
+
+                    FETCH_VALIDATE: begin
+                        if (!fetched_one_over_w_valid) begin
+                            busy        <= 1'b0;
+                            done        <= 1'b1;
+                            error       <= 1'b1;
+                            fetch_state <= FETCH_IDLE;
+                        end else begin
+                            // raster_start is asserted combinationally during
+                            // this state, so the child snapshots target/X/Y at
+                            // this same clock edge.
+                            fetch_state <= FETCH_RASTER;
+                        end
+                    end
+
+                    FETCH_RASTER: begin
+                        if (raster_done) begin
+                            busy        <= 1'b0;
+                            done        <= 1'b1;
+                            fetch_state <= FETCH_IDLE;
+                        end
+                    end
+
+                    default: begin
+                        busy              <= 1'b0;
+                        done              <= 1'b1;
+                        error             <= 1'b1;
+                        fetch_state       <= FETCH_IDLE;
+                        vertex_word_index <= 5'd0;
+                    end
+                endcase
             end
 
             if (valid && write) begin
@@ -285,17 +468,19 @@ module jupiter_gpu_3d
                             active_blend_alpha      <= blend_alpha_reg;
                             active_flat_color       <= flat_color_reg;
 
-                            done          <= 1'b0;
-                            error         <= 1'b0;
-                            shell_pending <= 1'b0;
+                            done              <= 1'b0;
+                            error             <= 1'b0;
+                            fetch_state       <= FETCH_IDLE;
+                            vertex_word_index <= 5'd0;
 
                             if (command_invalid) begin
                                 busy  <= 1'b0;
                                 done  <= 1'b1;
                                 error <= 1'b1;
                             end else begin
-                                busy          <= 1'b1;
-                                shell_pending <= 1'b1;
+                                busy              <= 1'b1;
+                                fetch_state       <= FETCH_WORD;
+                                vertex_word_index <= 5'd0;
                             end
                         end
                     end

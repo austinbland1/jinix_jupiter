@@ -15,6 +15,10 @@ module jupiter_gpu_3d_tb;
     localparam [31:0] REG_FLAT_COLOR       = 32'h00001168;
     localparam [31:0] REG_RESERVED         = 32'h0000116C;
 
+    localparam [1:0] FETCH_IDLE     = 2'd0;
+    localparam [1:0] FETCH_WORD     = 2'd1;
+    localparam [1:0] FETCH_VALIDATE = 2'd2;
+
     reg clk = 1'b0;
     reg reset = 1'b1;
 
@@ -33,12 +37,13 @@ module jupiter_gpu_3d_tb;
     wire [31:0] sdram_wdata;
     wire  [3:0] sdram_wstrb;
 
-    reg [31:0] sdram_rdata = 32'hDEADBEEF;
-    reg        sdram_ready = 1'b1;
+    reg [31:0] sdram_rdata = 32'h00000000;
+    reg        sdram_ready = 1'b0;
 
     integer checks = 0;
     integer failures = 0;
     integer sdram_request_count = 0;
+    integer completion_watchdog = 0;
 
     jupiter_gpu_3d dut
     (
@@ -66,7 +71,7 @@ module jupiter_gpu_3d_tb;
     always #5 clk = ~clk;
 
     always @(posedge clk) begin
-        if (sdram_valid)
+        if (sdram_valid && sdram_ready)
             sdram_request_count <= sdram_request_count + 1;
     end
 
@@ -147,6 +152,126 @@ module jupiter_gpu_3d_tb;
         end
     endtask
 
+    function automatic [31:0] vertex_word;
+        input integer index;
+        begin
+            case (index)
+                0:  vertex_word = 32'h00010000;
+                1:  vertex_word = 32'h00010000;
+                2:  vertex_word = 32'h00001000;
+                3:  vertex_word = 32'h00000000;
+                4:  vertex_word = 32'h00000000;
+                5:  vertex_word = 32'h00010000;
+
+                6:  vertex_word = 32'h00020000;
+                7:  vertex_word = 32'h00020000;
+                8:  vertex_word = 32'h00002000;
+                9:  vertex_word = 32'h00010000;
+                10: vertex_word = 32'h00000000;
+                11: vertex_word = 32'h00010000;
+
+                12: vertex_word = 32'h00030000;
+                13: vertex_word = 32'h00030000;
+                14: vertex_word = 32'h00003000;
+                15: vertex_word = 32'h00000000;
+                16: vertex_word = 32'h00010000;
+                17: vertex_word = 32'h00010000;
+
+                default:
+                    vertex_word = 32'hDEADBEEF;
+            endcase
+        end
+    endfunction
+
+    task complete_vertex_record;
+        integer fetch_index;
+        begin
+            for (
+                fetch_index = 0;
+                fetch_index < 18;
+                fetch_index = fetch_index + 1
+            ) begin
+
+                check(
+                    sdram_valid &&
+                    !sdram_write &&
+                    sdram_addr ==
+                        (
+                            dut.active_vertex_base +
+                            (fetch_index * 4)
+                        ) &&
+                    sdram_wdata == 32'h00000000 &&
+                    sdram_wstrb == 4'b0000,
+                    "expected vertex word read is presented"
+                );
+
+                @(negedge clk);
+
+                sdram_rdata = vertex_word(fetch_index);
+                sdram_ready = 1'b1;
+
+                #1;
+
+                check(
+                    sdram_valid &&
+                    !sdram_write &&
+                    sdram_addr ==
+                        (
+                            dut.active_vertex_base +
+                            (fetch_index * 4)
+                        ),
+                    "vertex word remains presented through completion"
+                );
+
+                @(posedge clk);
+                #1;
+
+                sdram_ready = 1'b0;
+                sdram_rdata = 32'h00000000;
+            end
+
+            check(
+                dut.fetch_state == FETCH_VALIDATE &&
+                dut.busy &&
+                !dut.done &&
+                !sdram_valid,
+                "vertex record enters transaction-free validation"
+            );
+
+            completion_watchdog = 0;
+
+            while (
+                !dut.done &&
+                (completion_watchdog < 16)
+            ) begin
+                @(posedge clk);
+                #1;
+
+                completion_watchdog =
+                    completion_watchdog + 1;
+            end
+
+            check(
+                completion_watchdog < 16,
+                "degenerate raster completion stays bounded"
+            );
+
+            check(
+                !dut.busy &&
+                dut.done &&
+                !dut.error &&
+                dut.fetch_state == FETCH_IDLE,
+                "valid fetched degenerate triangle completes normally"
+            );
+
+            check(
+                !sdram_valid &&
+                !sdram_write,
+                "degenerate standalone command emits no framebuffer traffic"
+            );
+        end
+    endtask
+
     initial begin
 
         // ----------------------------------------------------
@@ -162,8 +287,9 @@ module jupiter_gpu_3d_tb;
             dut.busy === 1'b0 &&
             dut.done === 1'b0 &&
             dut.error === 1'b0 &&
-            dut.shell_pending === 1'b0,
-            "reset clears shell status"
+            dut.fetch_state == FETCH_IDLE &&
+            dut.vertex_word_index == 5'd0,
+            "reset clears 3D status and vertex-fetch state"
         );
 
         check(
@@ -287,7 +413,7 @@ module jupiter_gpu_3d_tb;
             dut.busy === 1'b0 &&
             dut.done === 1'b1 &&
             dut.error === 1'b1 &&
-            dut.shell_pending === 1'b0,
+            dut.fetch_state == FETCH_IDLE,
             "invalid target completes immediately with ERROR"
         );
 
@@ -303,7 +429,7 @@ module jupiter_gpu_3d_tb;
         );
 
         // ----------------------------------------------------
-        // Valid shell command
+        // Valid vertex-fetch command
         // ----------------------------------------------------
 
         mmio_write(
@@ -334,8 +460,9 @@ module jupiter_gpu_3d_tb;
             dut.busy === 1'b1 &&
             dut.done === 1'b0 &&
             dut.error === 1'b0 &&
-            dut.shell_pending === 1'b1,
-            "valid START enters bounded BUSY shell state"
+            dut.fetch_state == FETCH_WORD &&
+            dut.vertex_word_index == 5'd0,
+            "valid START enters vertex-fetch state"
         );
 
         check(
@@ -349,47 +476,27 @@ module jupiter_gpu_3d_tb;
         );
 
         check(
-            sdram_valid === 1'b0,
-            "valid M10B-1 shell command still emits no SDRAM traffic"
+            sdram_valid &&
+            !sdram_write &&
+            sdram_addr == 32'h10000000,
+            "accepted command begins vertex word zero read"
         );
 
-        // The shell is BUSY here. This second START reaches the next
-        // posedge while old BUSY is still asserted and must be ignored.
-        mmio_write(
-            REG_CONTROL,
-            32'h00000001,
-            4'b0001
-        );
-
-        check(
-            dut.busy === 1'b0 &&
-            dut.done === 1'b1 &&
-            dut.error === 1'b0 &&
-            dut.shell_pending === 1'b0,
-            "START while BUSY is ignored as first command completes"
-        );
-
-        check(
-            dut.active_flat_color == 32'h0000F81F,
-            "ignored START does not replace active snapshot"
-        );
-
-        mmio_read(
-            REG_STATUS,
-            32'h00000002,
-            "successful shell command reports sticky DONE"
-        );
-
-        // ----------------------------------------------------
-        // Live writes do not alter active command snapshot
-        // ----------------------------------------------------
-
+        // Live configuration remains writable while the active snapshot is
+        // immutable.
         mmio_write(
             REG_FLAT_COLOR,
             32'h00001234,
             4'b1111
         );
 
+        check(
+            dut.flat_color_reg == 32'h00001234 &&
+            dut.active_flat_color == 32'h0000F81F,
+            "live write during fetch does not mutate active snapshot"
+        );
+
+        // START while BUSY is ignored.
         mmio_write(
             REG_CONTROL,
             32'h00000001,
@@ -397,12 +504,44 @@ module jupiter_gpu_3d_tb;
         );
 
         check(
-            dut.busy === 1'b1 &&
-            dut.active_flat_color == 32'h00001234,
-            "new command snapshots current flat color"
+            dut.busy &&
+            dut.fetch_state == FETCH_WORD &&
+            dut.vertex_word_index == 5'd0 &&
+            dut.active_flat_color == 32'h0000F81F,
+            "START while vertex fetch is busy is ignored"
         );
 
-        // This write lands while the old BUSY value is still asserted.
+        complete_vertex_record();
+
+        mmio_read(
+            REG_STATUS,
+            32'h00000002,
+            "successful vertex fetch reports sticky DONE"
+        );
+
+        mmio_read(
+            REG_FLAT_COLOR,
+            32'h00001234,
+            "live write during fetch is retained for next command"
+        );
+
+        // ----------------------------------------------------
+        // Next command consumes updated live configuration
+        // ----------------------------------------------------
+
+        mmio_write(
+            REG_CONTROL,
+            32'h00000001,
+            4'b0001
+        );
+
+        check(
+            dut.busy &&
+            dut.fetch_state == FETCH_WORD &&
+            dut.active_flat_color == 32'h00001234,
+            "next START consumes updated live configuration"
+        );
+
         mmio_write(
             REG_FLAT_COLOR,
             32'h00005678,
@@ -410,38 +549,17 @@ module jupiter_gpu_3d_tb;
         );
 
         check(
-            dut.busy === 1'b0 &&
-            dut.done === 1'b1 &&
-            dut.active_flat_color == 32'h00001234,
-            "live write during BUSY does not mutate active snapshot"
+            dut.active_flat_color == 32'h00001234 &&
+            dut.flat_color_reg == 32'h00005678,
+            "second live write also preserves active snapshot"
         );
+
+        complete_vertex_record();
 
         mmio_read(
             REG_FLAT_COLOR,
             32'h00005678,
-            "live write during BUSY is retained for next command"
-        );
-
-        mmio_write(
-            REG_CONTROL,
-            32'h00000001,
-            4'b0001
-        );
-
-        check(
-            dut.busy === 1'b1 &&
-            dut.active_flat_color == 32'h00005678,
-            "next START consumes updated live configuration"
-        );
-
-        @(posedge clk);
-        #1;
-
-        check(
-            dut.busy === 1'b0 &&
-            dut.done === 1'b1 &&
-            dut.error === 1'b0,
-            "bounded shell command completes one interval later"
+            "second live write remains available for later commands"
         );
 
         // ----------------------------------------------------
@@ -523,12 +641,12 @@ module jupiter_gpu_3d_tb;
 
         check(
             dut.busy === 1'b1 &&
+            dut.fetch_state == FETCH_WORD &&
             dut.error === 1'b0,
             "disabled texture does not require texture dimensions"
         );
 
-        @(posedge clk);
-        #1;
+        complete_vertex_record();
 
         check(
             dut.done === 1'b1 &&
@@ -542,8 +660,8 @@ module jupiter_gpu_3d_tb;
         // ----------------------------------------------------
 
         check(
-            sdram_request_count == 0,
-            "entire standalone M10B-1 test observes zero SDRAM requests"
+            sdram_request_count == 54,
+            "three successful commands complete exactly fifty-four vertex reads"
         );
 
         check(
@@ -552,7 +670,7 @@ module jupiter_gpu_3d_tb;
             sdram_addr == 32'h00000000 &&
             sdram_wdata == 32'h00000000 &&
             sdram_wstrb == 4'b0000,
-            "3D shell SDRAM outputs remain deterministic idle values"
+            "vertex-fetch engine returns deterministic idle SDRAM values"
         );
 
         check(

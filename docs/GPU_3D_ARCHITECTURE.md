@@ -226,6 +226,35 @@ Add `jupiter_gpu_3d`, 3D MMIO/configuration state, deterministic command errors,
 
 ### M10B-2 - Triangle coverage and flat rendering
 
+**Implementation status: complete and fully regressed.**
+
+M10B-2 now implements the first deterministic rendering path selected by
+this architecture:
+
+- each accepted command fetches the complete 72-byte triangle record as
+  eighteen aligned 32-bit SDRAM reads;
+- all three fetched `1/W` values are validated before rasterization;
+- signed Q16.16 X/Y coordinates feed a deterministic CCW rasterizer using
+  pixel-center sampling, a top-left shared-edge rule, and a target-clipped
+  integer bounding box;
+- clockwise and degenerate triangles complete normally without covered
+  pixels;
+- flat RGB565 fragments use aligned 32-bit SDRAM transactions with `0011`
+  or `1100` byte strobes for the selected halfword;
+- covered fragments are held under backpressure until SDRAM completion, so
+  coordinates, address, data, and byte strobes remain stable while stalled;
+- the existing external CPU -> GPU -> DMA SDRAM-master contract and M5 2D
+  behavior remain unchanged.
+
+The deterministic M10B-2 references cover vertex fetch, shared-edge
+ownership without cracks or double fill, clipping, fetch-to-raster
+integration, and six-pixel flat framebuffer output. `m10b2-test` is part of
+the normal simulation regression, and the complete `make -C sim test`
+repository suite passes with M10B-2 registered.
+
+M10C adds the selected 16-bit strict-LESS depth-buffer path.
+
+
 Add vertex fetch, top-left rasterization, target clipping, and flat RGB565 framebuffer writes with deterministic reference coverage.
 
 ### M10C - Depth
