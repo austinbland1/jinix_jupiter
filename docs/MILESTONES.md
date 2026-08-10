@@ -422,13 +422,13 @@ The HPS must remain an optional I/O/network/media assistant and must not become 
 - Documentation: ARCHITECTURE.md updated so provisional architecture decisions that became final are clearly recorded. Release-build instructions documented. Known limitations documented. Architectural revisions discovered during integration must be documented and regression-tested.
 
 ### Acceptance Criteria
-- [ ] All required automated regressions pass.
-- [ ] No unresolved address-map conflicts, arbitration deadlocks, or interface mismatches remain.
-- [ ] Architectural changes discovered during integration are documented and tested.
-- [ ] When synthesis is performed, reported results come from actual Quartus output.
-- [ ] When hardware validation is performed, its results are documented.
-- [ ] Optional HPS services do not perform normal Jupiter game logic.
-- [ ] Release documentation accurately distinguishes verified behavior from untested or unavailable validation.
+- [x] All required automated regressions pass.
+- [x] No unresolved address-map conflicts, arbitration deadlocks, or interface mismatches remain.
+- [x] Architectural changes discovered during integration are documented and tested.
+- [x] When synthesis is performed, reported results come from actual Quartus output.
+- [x] When hardware validation is performed, its results are documented.
+- [x] Optional HPS services do not perform normal Jupiter game logic.
+- [x] Release documentation accurately distinguishes verified behavior from untested or unavailable validation.
 
 ### Non-Goals
 - HPS services must not supplant the game CPU for any gameplay-critical function — Jupiter's core architecture must operate as a standalone system without relying on the ARM host processor for running game logic.

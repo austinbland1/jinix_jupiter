@@ -368,15 +368,34 @@ if m11 is not None:
         )
     )
 
-    check(
-        open_count == 7,
-        "M11C leaves all seven acceptance criteria open",
+    closeout_recorded = (
+        "## Milestone 11 Acceptance Closeout"
+        in release_validation
+        and
+        "Milestone 11 acceptance adjudication: PASS."
+        in release_validation
     )
 
-    check(
-        done_count == 0,
-        "M11C does not prematurely mark acceptance complete",
-    )
+    if closeout_recorded:
+        check(
+            open_count == 0,
+            "post-M11C closeout has zero open acceptance criteria",
+        )
+
+        check(
+            done_count == 7,
+            "post-M11C closeout has all seven acceptance criteria complete",
+        )
+    else:
+        check(
+            open_count == 7,
+            "M11C leaves all seven acceptance criteria open",
+        )
+
+        check(
+            done_count == 0,
+            "M11C does not prematurely mark acceptance complete",
+        )
 
 # ============================================================
 # Regression registration

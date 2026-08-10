@@ -86,3 +86,36 @@ state, status/configuration, and reported SDRAM configuration.
 
 Normal Jupiter game logic remains FPGA-side and does not execute on the HPS
 ARM processor.
+
+## Milestone 11 Acceptance Closeout
+
+Milestone 11 acceptance adjudication: PASS.
+
+All seven documented Milestone 11 acceptance criteria are satisfied within
+their stated evidence boundaries:
+
+1. All required automated regressions pass, including the historical M11A
+   integration/release gate, the M11C release/acceptance gate, and the complete
+   repository simulation regression.
+2. Integrated address decoding, display MMIO routing, SDRAM arbitration, and
+   production system interfaces have automated regression coverage with no
+   unresolved conflict, deadlock, or interface mismatch observed.
+3. The framebuffer-scanout architecture discovered and finalized during
+   integration is documented and regression-tested through the production
+   system video boundary.
+4. Quartus synthesis was not performed because Quartus was unavailable on the
+   audited development machine. The conditional synthesis criterion was
+   therefore not triggered, and no synthesis/resource/timing result is
+   fabricated.
+5. Physical SuperStation One / MiSTer-compatible hardware validation was not
+   performed. The conditional hardware-results criterion was therefore not
+   triggered, and no hardware PASS is claimed.
+6. No new optional HPS service was selected, and normal Jupiter game logic
+   remains FPGA-side.
+7. Release documentation explicitly distinguishes simulation-verified behavior
+   from unavailable Quartus validation and unperformed physical hardware
+   validation.
+
+Milestone 11 repository acceptance completion does not convert unavailable
+Quartus synthesis or unperformed physical hardware validation into successful
+results. Those limitations remain recorded as such.

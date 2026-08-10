@@ -602,3 +602,14 @@ test: m11c-test
 
 m11c-test: m11b3b-test
 	python3 -B check_m11c_release_acceptance.py
+
+# ============================================================
+# Milestone 11D - acceptance closeout
+# ============================================================
+
+.PHONY: m11d-test
+
+test: m11d-test
+
+m11d-test: m11c-test
+	python3 -B check_m11d_closeout.py
