@@ -24,6 +24,14 @@ module jupiter_system
     // MiSTer-reported external SDRAM configuration.
     input  wire [15:0] sdram_sz,
 
+    // M8B-2 production digital controller boundary.
+    input  wire [31:0] controller_0_state,
+    input  wire [31:0] controller_1_state,
+    input  wire [31:0] controller_2_state,
+    input  wire [31:0] controller_3_state,
+    input  wire [31:0] controller_4_state,
+    input  wire [31:0] controller_5_state,
+
     // External SDR SDRAM interface.
     // SDRAM_CLK is intentionally deferred to top-level integration.
     output wire        SDRAM_CKE,
@@ -63,14 +71,13 @@ module jupiter_system
 
         .sdram_sz   (sdram_sz),
 
-        // M8B-1 keeps production controller inputs deterministic until
-        // Template/hps_io integration in M8B-2.
-        .controller_0_state (32'h00000000),
-        .controller_1_state (32'h00000000),
-        .controller_2_state (32'h00000000),
-        .controller_3_state (32'h00000000),
-        .controller_4_state (32'h00000000),
-        .controller_5_state (32'h00000000),
+        // M8B-2 production controller propagation.
+        .controller_0_state (controller_0_state),
+        .controller_1_state (controller_1_state),
+        .controller_2_state (controller_2_state),
+        .controller_3_state (controller_3_state),
+        .controller_4_state (controller_4_state),
+        .controller_5_state (controller_5_state),
 
         .audio_l    (AUDIO_L),
         .audio_r    (AUDIO_R),

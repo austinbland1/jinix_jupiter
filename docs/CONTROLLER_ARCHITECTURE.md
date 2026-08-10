@@ -219,12 +219,17 @@ CPU-subsystem controller inputs until M8B-2.
 
 ### M8B-2 — Production MiSTer input wiring
 
-Integrate:
+Implemented and verified in simulation:
 
-- `hps_io.joystick_0` through `joystick_5` in `Template.sv`;
-- corresponding `jupiter_system` ports;
-- propagation into `jupiter_cpu_subsystem`;
-- production wrapper/topology verification.
+- `hps_io.joystick_0` through `joystick_5` are connected in `Template.sv`;
+- each raw 32-bit word is forwarded bit-for-bit to the corresponding
+  `jupiter_system` controller-state input;
+- `jupiter_system` forwards all six words into `jupiter_cpu_subsystem`;
+- the temporary M8B-1 zero ties are removed;
+- `jupiter_system_tb.sv` verifies all six independent words and immediate
+  propagation of a changed controller value;
+- `check_m8b2_controller_topology.py` verifies the selected production
+  hierarchy and confirms that unselected input facilities are not added.
 
 ---
 
@@ -243,8 +248,8 @@ M8B-1 automated evidence currently includes:
   unmapped aligned address after the controller aperture is `0x00001500`;
 - the complete repository regression, which remains green with M8B-1 present.
 
-Production `hps_io`/`Template.sv` propagation remains an M8B-2 verification
-requirement.
+Production `hps_io`/`Template.sv` propagation is verified by M8B-2 through
+the wrapper simulation and the static production-topology checker.
 
 Milestone 8 implementation tests must verify:
 

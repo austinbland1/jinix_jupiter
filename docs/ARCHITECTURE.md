@@ -414,8 +414,8 @@ are treated as current architecture; only their future extensions remain open.
 ### Controller / Peripheral Register Design
 
 - M8B-1 implements six read-only 32-bit digital controller-state registers.
-- M8B-2 will back those subsystem inputs directly with MiSTer `joystick_0`
-  through `joystick_5`.
+- M8B-2 connects those subsystem inputs directly to MiSTer `joystick_0`
+  through `joystick_5` via `Template.sv` and `jupiter_system`.
 - The controller aperture is `0x00001400–0x000014FF`; implemented registers
   occupy `0x1400` through `0x1414`.
 - Reserved aligned offsets read zero and writes have no effect.

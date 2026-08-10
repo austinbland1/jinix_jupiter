@@ -89,6 +89,14 @@ wire   [1:0] buttons;
 wire [127:0] status;
 wire  [10:0] ps2_key;
 
+// M8B-2 selected MiSTer digital controller state.
+wire [31:0] joystick_0;
+wire [31:0] joystick_1;
+wire [31:0] joystick_2;
+wire [31:0] joystick_3;
+wire [31:0] joystick_4;
+wire [31:0] joystick_5;
+
 // MiSTer-reported SDRAM configuration.
 wire [15:0] sdram_sz;
 
@@ -103,6 +111,13 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 	.forced_scandoubler(forced_scandoubler),
 
 	.buttons(buttons),
+
+	.joystick_0(joystick_0),
+	.joystick_1(joystick_1),
+	.joystick_2(joystick_2),
+	.joystick_3(joystick_3),
+	.joystick_4(joystick_4),
+	.joystick_5(joystick_5),
 	.status(status),
 	.status_menumask({status[5]}),
 	
@@ -181,6 +196,13 @@ jupiter_system jupiter_system_inst
 	.AUDIO_MIX(AUDIO_MIX),
 
 	.sdram_sz(sdram_sz),
+
+	.controller_0_state(joystick_0),
+	.controller_1_state(joystick_1),
+	.controller_2_state(joystick_2),
+	.controller_3_state(joystick_3),
+	.controller_4_state(joystick_4),
+	.controller_5_state(joystick_5),
 
 	.SDRAM_CKE(SDRAM_CKE),
 	.SDRAM_A(SDRAM_A),

@@ -54,7 +54,7 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
 	gpu-full-tile-test gpu-full-map-test \
 	cpu-subsystem-test cpu-memory-map-test cpu-gpu-mmio-test cpu-dma-mmio-test \
 	audio-regs-test audio-playback-test audio-mixer-test interconnect-audio-test cpu-audio-mmio-test audio-topology-test \
-	controller-regs-test interconnect-controller-test cpu-controller-mmio-test \
+	controller-regs-test interconnect-controller-test cpu-controller-mmio-test controller-topology-test \
 	sdram-arbiter-test shared-sdram-test dma-sdram-path-test gpu-sdram-render-test \
 	gpu-sdram-contention-test \
 	sdram-frontend-test sdram-controller-test sdram-path-test \
@@ -93,10 +93,13 @@ m6e-test: cpu-dma-contention-test gpu-dma-contention-test three-master-contentio
 m7b-test: audio-regs-test audio-playback-test audio-mixer-test interconnect-audio-test cpu-audio-mmio-test
 
 m7c-test: system-test audio-topology-test
-m8b-test: controller-regs-test interconnect-controller-test cpu-controller-mmio-test interconnect-test interconnect-audio-test
+m8b-test: controller-regs-test interconnect-controller-test cpu-controller-mmio-test interconnect-test interconnect-audio-test system-test controller-topology-test
 
 audio-topology-test:
 	python3 check_m7c_audio_topology.py
+
+controller-topology-test:
+	python3 check_m8b2_controller_topology.py
 
 audio-regs-test:
 	iverilog -g2012 -s jupiter_audio_tb -o jupiter_audio.vvp $(AUDIO_RTL) jupiter_audio_tb.sv

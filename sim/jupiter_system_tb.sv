@@ -7,6 +7,14 @@ reg reset = 1'b1;
 reg pal = 1'b0;
 reg scandouble = 1'b1;
 
+// M8B-2 controller inputs propagated by jupiter_system.
+reg [31:0] controller_0_state = 32'h00000001;
+reg [31:0] controller_1_state = 32'h80000000;
+reg [31:0] controller_2_state = 32'hA5A55A5A;
+reg [31:0] controller_3_state = 32'h13579BDF;
+reg [31:0] controller_4_state = 32'h2468ACE0;
+reg [31:0] controller_5_state = 32'h89ABCDEF;
+
 always #5 clk = ~clk;
 
 // Jupiter wrapper outputs.
@@ -71,6 +79,13 @@ jupiter_system dut
     // Existing wrapper regression runs without installed SDRAM.
     .sdram_sz   (16'h0000),
 
+    .controller_0_state (controller_0_state),
+    .controller_1_state (controller_1_state),
+    .controller_2_state (controller_2_state),
+    .controller_3_state (controller_3_state),
+    .controller_4_state (controller_4_state),
+    .controller_5_state (controller_5_state),
+
     .SDRAM_CKE  (dut_SDRAM_CKE),
     .SDRAM_A    (dut_SDRAM_A),
     .SDRAM_BA   (dut_SDRAM_BA),
@@ -125,6 +140,33 @@ initial begin
 
     check(dut_AUDIO_MIX == 2'b00,
           "wrapper selects native stereo with no framework mono mix");
+
+    // Verify all six independent controller words propagate through:
+    //
+    // jupiter_system -> jupiter_cpu_subsystem.
+    check(dut.cpu_subsystem.controller_0_state == controller_0_state,
+          "wrapper propagates controller zero state");
+
+    check(dut.cpu_subsystem.controller_1_state == controller_1_state,
+          "wrapper propagates controller one state");
+
+    check(dut.cpu_subsystem.controller_2_state == controller_2_state,
+          "wrapper propagates controller two state");
+
+    check(dut.cpu_subsystem.controller_3_state == controller_3_state,
+          "wrapper propagates controller three state");
+
+    check(dut.cpu_subsystem.controller_4_state == controller_4_state,
+          "wrapper propagates controller four state");
+
+    check(dut.cpu_subsystem.controller_5_state == controller_5_state,
+          "wrapper propagates controller five state");
+
+    controller_3_state = 32'h55AA00FF;
+    #1;
+
+    check(dut.cpu_subsystem.controller_3_state == 32'h55AA00FF,
+          "wrapper propagates controller changes without extra latch");
 
     // Release away from the active edge.
     @(negedge clk);
