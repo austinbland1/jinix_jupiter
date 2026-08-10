@@ -5,7 +5,7 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
 > **Current branch:** `milestone-7`  
-> **Current checkpoint:** Milestone 7 PCM audio is implemented and verified in simulation; documentation closeout is ready for the `m7-verified` checkpoint.
+> **Current checkpoint:** Milestone 8 controller architecture is selected; controller MMIO/interconnect implementation is next.
 > **Verified predecessor:** `m6-verified` = `68cd6eed26e18afe2428702e3a71d921fc099693`
 ---
 
@@ -21,8 +21,8 @@ Jupiter is **not an emulator of an existing console**. It is being designed as i
 | 5 | Hardware 2D graphics | Verified |
 | 6 | DMA and three-master SDRAM arbitration | **Verified — `m6-verified`** |
 | 7 | PCM audio | **Verified in simulation — `m7-verified`** |
-| 8+ | Later graphics, peripherals, firmware, devkit, etc. | Not yet implemented |
-
+| 8 | Controllers and core peripherals | **In progress — architecture selected; implementation next** |
+| 9+ | Firmware, devkit, 3D, HPS services, etc. | Not yet implemented |
 Milestones are developed incrementally with deterministic simulation coverage. Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.
 
 ---
@@ -87,6 +87,7 @@ Current established regions include:
 | `0x00001100–0x000011FF` | GPU 2D control MMIO |
 | `0x00001200–0x000012FF` | DMA control MMIO |
 | `0x00001300–0x000013FF` | PCM audio control MMIO |
+| `0x00001400–0x000014FF` | Controller input MMIO |
 | `0x10000000–0x17FFFFFF` | Maximum external-SDRAM aperture |
 
 The usable SDRAM range depends on the MiSTer-reported installed capacity.
@@ -262,7 +263,7 @@ jinix_jupiter/
 │   ├── dma/               DMA engine
 │   ├── gpu/               2D GPU
 │   ├── memory/            RAM, interconnect, SDRAM frontend/controller/arbiter
-│   └── peripherals/       MMIO / later peripherals
+│   └── peripherals/       MMIO and controller/core-peripheral RTL
 ├── sim/                   Deterministic simulation tests and models
 ├── software/
 │   ├── bios/              Future Jupiter firmware
@@ -312,16 +313,23 @@ The `milestone-7` branch starts directly from `m6-verified`.
 
 ## Current Next Step
 
-**Milestone 8 — Controllers and Core Peripherals.**
+**M8B-1 — implement controller MMIO and CPU/interconnect integration.**
 
-Milestone 7 is closed at the selected deterministic PCM-audio scope. The next
-development phase should begin by inspecting and selecting the concrete
-controller/peripheral architecture required by Milestone 8 before adding new
-functional RTL.
+The selected M8A architecture uses all six MiSTer digital joystick words as
+bit-preserving, read-only 32-bit controller state registers:
 
-As with earlier milestones, functionality not explicitly selected for
-Milestone 8 remains outside the acceptance boundary until it is documented and
-implemented.
+1. add `rtl/peripherals/jupiter_controllers.sv`;
+2. implement `0x00001400–0x000014FF` controller MMIO;
+3. expose `CONTROLLER_0_STATE` through `CONTROLLER_5_STATE` at `0x1400`
+   through `0x1414`;
+4. return zero for reserved aligned controller offsets;
+5. make writes deterministic no-ops;
+6. add the controller target to `jupiter_interconnect`;
+7. integrate it into `jupiter_cpu_subsystem`;
+8. add focused deterministic peripheral/interconnect/CPU-MMIO tests.
+
+M8B-1 will use directly driven controller inputs in simulation. Production
+`hps_io`/`Template.sv` wiring follows in M8B-2.
 
 ---
 

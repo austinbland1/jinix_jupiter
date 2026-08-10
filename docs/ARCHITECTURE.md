@@ -36,8 +36,8 @@ and `rtl/mycore.v`.
 ### `hps_io`: MiSTer Framework Bridge
 
 - `hps_io.sv` (from `sys/`) provides the MiSTer HPS/core communication interface, handling all exchange between core and MiSTer's host framework. It decodes:
- - **Joystick / button input** — up to 32 buttons across multiple ports.
- - **Analog joystick axes** — 16-bit per-port values (Y[15:8], X[7:0]).
+ - **Digital joystick input** — six framework ports, each exposing a 32-bit state word.
+ - **Analog joystick axes** — framework capability exists, but analog input is not selected for the initial Milestone 8 Jupiter interface.
  - **OSD configuration options** — user-selectable settings via a `CONF_STR` parameter passed during instantiation.
  - **Core state save / restore** — binary snapshot of internal registers to MiSTer flash storage.
 - Reset to core logic is asserted when `RESET | status[0] | buttons[1]`.
@@ -202,7 +202,8 @@ are documented in `docs/BUS_MEMORY_MAP.md`:
 | `0x00001000`–`0x00001003` | MMIO scratch register | Implemented in M3 |
 | `0x00001100`–`0x000011FF` | GPU 2D control MMIO | Integrated in M5B-2 |
 | `0x00001200`–`0x000012FF` | DMA control MMIO | Integrated in M6B-2 |
-| `0x00001300`–`0x000013FF` | PCM audio control MMIO | Selected for M7 |
+| `0x00001300`–`0x000013FF` | PCM audio control MMIO | Integrated in M7 |
+| `0x00001400`–`0x000014FF` | Controller input MMIO | Selected for M8 |
 | `0x10000000`–`0x17FFFFFF` | External SDRAM maximum aperture | Selected for M4 |
 
 The usable SDRAM portion depends on reported installed capacity:
@@ -293,11 +294,23 @@ The exact initial behavior and register contract are documented in
 
 ### Controller Input
 
-**PROPOSED.** Joystick/button handling may be partially available through the MiSTer framework. Provisional targets include:
+Milestone 8 selects Jupiter's initial controller-input architecture.
 
-- `hps_io` provides up to 32 buttons and analog joystick axes via its output ports — verified from existing template source.
-- Controller register block location (address range) and feature set are TBD; an interrupt-on-state-change capability is a tentative design target only.
-- If implemented, analog mode support for the Y/X axes would forward data from `hps_io.joystick_l_analog_*` (verified available ports in `hps_io.sv`). Whether additional controller types or raw ADC paths are needed remains TBD.
+- `hps_io` exposes six digital 32-bit joystick words:
+  `joystick_0` through `joystick_5`.
+- Jupiter will expose all six words bit-for-bit to software.
+- No semantic button-name remapping is invented because the repository does
+  not currently establish an authoritative name-to-bit contract.
+- Controller MMIO is selected at `0x00001400–0x000014FF`.
+- The initial interface is read-only and polling-based.
+- Analog sticks, keyboard, mouse, paddles, spinners, rumble, light-gun/HID
+  facilities, and interrupt-on-change are not selected for the initial
+  Milestone 8 implementation.
+- `hps_io` and Jupiter use the existing `clk_sys` domain for the selected
+  signals, so no additional controller clock domain is introduced.
+
+The complete selected contract is documented in
+`docs/CONTROLLER_ARCHITECTURE.md`.
 
 ### BIOS ROM — Boot Firmware
 
@@ -400,8 +413,15 @@ are treated as current architecture; only their future extensions remain open.
 
 ### Controller / Peripheral Register Design
 
-- Which controller types (standard joysticks, buttons) are supported? What about analog axes or other peripheral interfaces?
-- How many controller ports, input formats, and register maps are planned? All remain TBD.
+- Milestone 8 selects six read-only 32-bit digital controller-state registers
+  backed directly by MiSTer `joystick_0` through `joystick_5`.
+- The controller aperture is `0x00001400–0x000014FF`; implemented registers
+  occupy `0x1400` through `0x1414`.
+- Reserved aligned offsets read zero and writes have no effect.
+- No interrupt/status mechanism is selected for the initial implementation.
+- Future analog input, semantic button aliases, rumble, keyboard/mouse, HID,
+  or other peripheral extensions remain open.
+
 
 ### BIOS / Boot Process
 

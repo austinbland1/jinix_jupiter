@@ -9,9 +9,9 @@ Milestone 4 extends that architecture by selecting the CPU-visible external
 SDRAM aperture and unavailable-memory behavior. The physical SDRAM controller
 and its integration are implemented incrementally during Milestone 4.
 
-Milestone 5 added CPU-visible GPU control MMIO. Milestone 6 selects the DMA
-control aperture documented below. Audio and later peripheral mappings remain
-unassigned.
+Milestone 5 added CPU-visible GPU control MMIO. Milestone 6 added DMA
+control MMIO. Milestone 7 added PCM audio control MMIO. Milestone 8 selects
+the controller-input aperture documented below.
 
 ## 2. Selected Internal Transaction Protocol
 
@@ -92,6 +92,8 @@ The complete Milestone 6 DMA arbitration contract is documented in
 | `0x00001000` | `0x00001003` | 4 B | MMIO scratch register | Implemented in M3 |
 | `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Integrated in M5B-2 |
 | `0x00001200` | `0x000012FF` | 256 B | DMA control MMIO | Integrated in M6B-2 |
+| `0x00001300` | `0x000013FF` | 256 B | PCM audio control MMIO | Integrated in M7 |
+| `0x00001400` | `0x000014FF` | 256 B | Controller input MMIO | Selected for M8 |
 | `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.
@@ -199,6 +201,41 @@ The DMA external-memory master is not connected to the shared SDRAM arbiter
 at M6B-2. That three-master integration belongs to a later Milestone 6
 checkpoint.
 
+### 7.3 Milestone 7 PCM Audio Control Aperture
+
+Milestone 7 integrates:
+
+    0x00001300 - 0x000013FF
+
+as the CPU-visible PCM audio control aperture.
+
+The register and playback contract is documented in
+`docs/AUDIO_ARCHITECTURE.md`.
+
+Aligned accesses in this range are routed to `jupiter_audio`. Reserved aligned
+offsets remain owned by the audio target and use the deterministic behavior
+defined by the audio architecture.
+
+### 7.4 Milestone 8 Controller Input Aperture
+
+Milestone 8 selects:
+
+    0x00001400 - 0x000014FF
+
+as the CPU-visible controller-input aperture.
+
+The initial register map provides six read-only 32-bit controller state words
+at `0x00001400` through `0x00001414`, one for each selected MiSTer digital
+joystick port.
+
+Reserved aligned offsets read zero. Writes complete with no state change.
+
+The full selected contract is documented in
+`docs/CONTROLLER_ARCHITECTURE.md`.
+
+This aperture is selected architecturally in M8A and becomes an implemented
+interconnect target in M8B-1.
+
 ## 8. Invalid and Unmapped Accesses
 
 Jupiter requires deterministic behavior rather than hanging the CPU.
@@ -238,11 +275,15 @@ for a valid aligned request:
 2. MMIO scratch register for `0x00001000` through `0x00001003`;
 3. GPU control MMIO for `0x00001100` through `0x000011FF`;
 4. DMA control MMIO for `0x00001200` through `0x000012FF`;
-5. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
-6. otherwise the deterministic unmapped response.
+5. PCM audio MMIO for `0x00001300` through `0x000013FF`;
+6. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
+7. otherwise the deterministic unmapped response.
 
-The GPU and DMA MMIO targets are distinct decoded targets and do not
-overlap the existing RAM, scratch-MMIO, SDRAM, or each other.
+The selected Milestone 8 controller range `0x00001400–0x000014FF` remains
+unmapped until M8B-1 integrates its interconnect target.
+
+The implemented GPU, DMA, and audio MMIO targets are distinct decoded targets
+and do not overlap RAM, scratch MMIO, SDRAM, or each other.
 
 Within the maximum SDRAM aperture, the SDRAM path permits a physical
 transaction only when the reported SDRAM configuration is valid and the
