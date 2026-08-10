@@ -463,3 +463,24 @@ m11a-test: m10e-test m11a-integration-static-test
 
 m11a-integration-static-test:
 	python3 -B check_m11a_integration_release.py
+
+# ============================================================
+# Milestone 11B-2a - second-stage normal/scanout SDRAM arbiter
+# ============================================================
+
+.PHONY: m11b2a-test \
+	sdram-scanout-arbiter-test \
+	m11b2a-clean
+
+test: m11b2a-test
+
+m11b2a-test: m11a-test sdram-scanout-arbiter-test
+
+sdram-scanout-arbiter-test:
+	iverilog -g2012 -s jupiter_sdram_scanout_arbiter_tb -o jupiter_sdram_scanout_arbiter.vvp ../rtl/memory/jupiter_sdram_scanout_arbiter.sv jupiter_sdram_scanout_arbiter_tb.sv
+	vvp -n jupiter_sdram_scanout_arbiter.vvp
+
+clean: m11b2a-clean
+
+m11b2a-clean:
+	rm -f jupiter_sdram_scanout_arbiter.vvp
