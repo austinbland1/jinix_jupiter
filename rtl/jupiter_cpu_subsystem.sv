@@ -3,6 +3,11 @@ module jupiter_cpu_subsystem
     input  wire clk,
     input  wire reset,
 
+
+    // M11B production framebuffer scanout timing mode.
+    input  wire pal,
+    input  wire scandouble,
+
     // MiSTer-reported installed external SDRAM size.
     input  wire [15:0] sdram_sz,
 
@@ -33,6 +38,17 @@ module jupiter_cpu_subsystem
     // Stable Jupiter mixed PCM samples.
     output wire signed [15:0] audio_l,
     output wire signed [15:0] audio_r,
+
+
+    // M11B production framebuffer scanout boundary.
+    output wire        video_ce_pix,
+    output wire        video_hblank,
+    output wire        video_hsync,
+    output wire        video_vblank,
+    output wire        video_vsync,
+    output wire  [7:0] video_r,
+    output wire  [7:0] video_g,
+    output wire  [7:0] video_b,
 
     output wire        halted
 );
@@ -71,7 +87,34 @@ module jupiter_cpu_subsystem
     wire [31:0] gpu_wdata;
     wire  [3:0] gpu_wstrb;
     wire [31:0] gpu_rdata;
-    wire        gpu_ready;    // DMA control-MMIO target interface.
+    wire        gpu_ready;
+
+    // M11B display-MMIO subdecode inside the existing GPU aperture.
+    wire scanout_mmio_selected =
+        gpu_valid &&
+        (gpu_addr >= 32'h00001180) &&
+        (gpu_addr <= 32'h000011BF);
+
+    wire gpu_render_valid =
+        gpu_valid &&
+        !scanout_mmio_selected;
+
+    wire [31:0] gpu_render_rdata;
+    wire        gpu_render_ready;
+
+    wire [31:0] scanout_mmio_rdata;
+    wire        scanout_mmio_ready;
+
+    assign gpu_rdata =
+        scanout_mmio_selected ?
+            scanout_mmio_rdata :
+            gpu_render_rdata;
+
+    assign gpu_ready =
+        scanout_mmio_selected ?
+            scanout_mmio_ready :
+            gpu_render_ready;
+    // DMA control-MMIO target interface.
     wire        dma_valid;
     wire        dma_write;
     wire [31:0] dma_addr;
@@ -137,6 +180,22 @@ wire        sdram_valid;
     wire [31:0] shared_sdram_rdata;
     wire        shared_sdram_ready;
 
+    // M11B read-only framebuffer scanout master.
+    wire        scanout_sdram_valid;
+    wire [31:0] scanout_sdram_addr;
+    wire [31:0] scanout_sdram_rdata;
+    wire        scanout_sdram_ready;
+
+    // Output of the second-stage normal/scanout arbiter.
+    wire        frontend_sdram_valid;
+    wire        frontend_sdram_write;
+    wire [31:0] frontend_sdram_addr;
+    wire [31:0] frontend_sdram_wdata;
+    wire  [3:0] frontend_sdram_wstrb;
+    wire [31:0] frontend_sdram_rdata;
+    wire        frontend_sdram_ready;
+
+
     // SDRAM frontend/controller halfword interface.
     wire        half_valid;
     wire        half_write;
@@ -147,6 +206,41 @@ wire        sdram_valid;
     wire        half_ready;
 
     wire        sdram_initialized;
+
+
+    reg [31:0] scanout_capacity_bytes;
+
+    always @* begin
+        case (sdram_sz[1:0])
+            2'd1:
+                scanout_capacity_bytes =
+                    32'h02000000;
+
+            2'd2:
+                scanout_capacity_bytes =
+                    32'h04000000;
+
+            2'd3:
+                scanout_capacity_bytes =
+                    32'h08000000;
+
+            default:
+                scanout_capacity_bytes =
+                    32'h00000000;
+        endcase
+    end
+
+    wire scanout_size_valid =
+        sdram_sz[15] &&
+        (scanout_capacity_bytes != 32'd0);
+
+    // jupiter_video_scanout consumes the inclusive final byte address.
+    wire [31:0] scanout_sdram_max_addr =
+        scanout_size_valid ?
+            (32'h10000000 +
+             scanout_capacity_bytes -
+             32'd1) :
+            32'h00000000;
 
     jupiter_cpu cpu
     (
@@ -269,19 +363,47 @@ wire        sdram_valid;
         .sdram_rdata (shared_sdram_rdata),
         .sdram_ready (shared_sdram_ready)
     );
+    jupiter_sdram_scanout_arbiter scanout_sdram_arbiter
+    (
+        .clk            (clk),
+        .reset          (reset),
+
+        .normal_valid   (shared_sdram_valid),
+        .normal_write   (shared_sdram_write),
+        .normal_addr    (shared_sdram_addr),
+        .normal_wdata   (shared_sdram_wdata),
+        .normal_wstrb   (shared_sdram_wstrb),
+        .normal_rdata   (shared_sdram_rdata),
+        .normal_ready   (shared_sdram_ready),
+
+        .scanout_valid  (scanout_sdram_valid),
+        .scanout_addr   (scanout_sdram_addr),
+        .scanout_rdata  (scanout_sdram_rdata),
+        .scanout_ready  (scanout_sdram_ready),
+
+        .sdram_valid    (frontend_sdram_valid),
+        .sdram_write    (frontend_sdram_write),
+        .sdram_addr     (frontend_sdram_addr),
+        .sdram_wdata    (frontend_sdram_wdata),
+        .sdram_wstrb    (frontend_sdram_wstrb),
+        .sdram_rdata    (frontend_sdram_rdata),
+        .sdram_ready    (frontend_sdram_ready)
+    );
+
+
 
     jupiter_sdram_frontend sdram_frontend
     (
         .clk        (clk),
         .reset      (reset),
 
-        .m_valid    (shared_sdram_valid),
-        .m_write    (shared_sdram_write),
-        .m_addr     (shared_sdram_addr),
-        .m_wdata    (shared_sdram_wdata),
-        .m_wstrb    (shared_sdram_wstrb),
-        .m_rdata    (shared_sdram_rdata),
-        .m_ready    (shared_sdram_ready),
+        .m_valid    (frontend_sdram_valid),
+        .m_write    (frontend_sdram_write),
+        .m_addr     (frontend_sdram_addr),
+        .m_wdata    (frontend_sdram_wdata),
+        .m_wstrb    (frontend_sdram_wstrb),
+        .m_rdata    (frontend_sdram_rdata),
+        .m_ready    (frontend_sdram_ready),
 
         .sdram_sz   (sdram_sz),
 
@@ -349,20 +471,57 @@ wire        sdram_valid;
         .rdata (mmio_rdata),
         .ready (mmio_ready)
     );
+    jupiter_video_scanout video_scanout
+    (
+        .clk            (clk),
+        .reset          (reset),
+
+        .pal            (pal),
+        .scandouble     (scandouble),
+
+        .valid          (scanout_mmio_selected),
+        .write          (gpu_write),
+        .addr           (gpu_addr),
+        .wdata          (gpu_wdata),
+        .wstrb          (gpu_wstrb),
+
+        .rdata          (scanout_mmio_rdata),
+        .ready          (scanout_mmio_ready),
+
+        .sdram_max_addr (scanout_sdram_max_addr),
+
+        .sdram_valid    (scanout_sdram_valid),
+        .sdram_addr     (scanout_sdram_addr),
+        .sdram_rdata    (scanout_sdram_rdata),
+        .sdram_ready    (scanout_sdram_ready),
+
+        .ce_pix         (video_ce_pix),
+
+        .HBlank         (video_hblank),
+        .HSync          (video_hsync),
+        .VBlank         (video_vblank),
+        .VSync          (video_vsync),
+
+        .video_r        (video_r),
+        .video_g        (video_g),
+        .video_b        (video_b)
+    );
+
+
 
     jupiter_gpu_2d gpu
     (
         .clk   (clk),
         .reset (reset),
 
-        .valid (gpu_valid),
+        .valid (gpu_render_valid),
         .write (gpu_write),
         .addr  (gpu_addr),
         .wdata (gpu_wdata),
         .wstrb (gpu_wstrb),
 
-        .rdata (gpu_rdata),
-        .ready (gpu_ready),
+        .rdata (gpu_render_rdata),
+        .ready (gpu_render_ready),
 
         .sdram_valid (gpu_sdram_valid),
         .sdram_write (gpu_sdram_write),

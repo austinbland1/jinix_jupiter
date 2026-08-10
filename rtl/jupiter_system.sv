@@ -64,10 +64,26 @@ module jupiter_system
 
     wire jupiter_cpu_halted;
 
+    // M11B-3a scanout is production-integrated inside the CPU subsystem.
+    // The external wrapper remains on mycore until M11B-3b.
+    wire       scanout_ce_pix;
+    wire       scanout_hblank;
+    wire       scanout_hsync;
+    wire       scanout_vblank;
+    wire       scanout_vsync;
+    wire [7:0] scanout_video_r;
+    wire [7:0] scanout_video_g;
+    wire [7:0] scanout_video_b;
+
+
     jupiter_cpu_subsystem cpu_subsystem
     (
         .clk        (clk),
         .reset      (reset),
+
+        .pal        (pal),
+        .scandouble (scandouble),
+
 
         .sdram_sz   (sdram_sz),
 
@@ -81,6 +97,16 @@ module jupiter_system
 
         .audio_l    (AUDIO_L),
         .audio_r    (AUDIO_R),
+
+        .video_ce_pix (scanout_ce_pix),
+        .video_hblank (scanout_hblank),
+        .video_hsync  (scanout_hsync),
+        .video_vblank (scanout_vblank),
+        .video_vsync  (scanout_vsync),
+        .video_r      (scanout_video_r),
+        .video_g      (scanout_video_g),
+        .video_b      (scanout_video_b),
+
 
         .SDRAM_CKE  (SDRAM_CKE),
         .SDRAM_A    (SDRAM_A),

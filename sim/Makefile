@@ -31,6 +31,8 @@ DMA_RTL = ../rtl/dma/jupiter_dma.sv
 AUDIO_RTL = ../rtl/audio/jupiter_audio.sv
 CONTROLLER_RTL = ../rtl/peripherals/jupiter_controllers.sv
 SDRAM_ARBITER_RTL = ../rtl/memory/jupiter_sdram_arbiter.sv
+SDRAM_SCANOUT_ARBITER_RTL = ../rtl/memory/jupiter_sdram_scanout_arbiter.sv
+VIDEO_SCANOUT_RTL = ../rtl/video/jupiter_video_scanout.sv
 SDRAM_FRONTEND_RTL = ../rtl/memory/jupiter_sdram_frontend.sv
 SDRAM_CONTROLLER_RTL = ../rtl/memory/jupiter_sdram_controller.sv
 SDRAM_MODEL = jupiter_sdram_model.sv
@@ -44,6 +46,8 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                     $(AUDIO_RTL) \
                      $(CONTROLLER_RTL) \
                     $(SDRAM_ARBITER_RTL) \
+                    $(SDRAM_SCANOUT_ARBITER_RTL) \
+                    $(VIDEO_SCANOUT_RTL) \
                     $(SDRAM_FRONTEND_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
                     ../rtl/jupiter_cpu_subsystem.sv
@@ -526,3 +530,25 @@ clean: m11b2c-clean
 
 m11b2c-clean:
 	rm -f jupiter_video_scanout_fetch.vvp
+
+
+# ============================================================
+# Milestone 11B-3a - production subsystem scanout integration
+# ============================================================
+
+.PHONY: m11b3a-test \
+	cpu-display-mmio-test \
+	m11b3a-clean
+
+test: m11b3a-test
+
+m11b3a-test: m11b2c-test cpu-display-mmio-test cpu-gpu-mmio-test system-test
+
+cpu-display-mmio-test:
+	iverilog -g2012 -s jupiter_cpu_display_mmio_tb -o jupiter_cpu_display_mmio.vvp $(CPU_SUBSYSTEM_RTL) jupiter_cpu_display_mmio_tb.sv
+	vvp -n jupiter_cpu_display_mmio.vvp
+
+clean: m11b3a-clean
+
+m11b3a-clean:
+	rm -f jupiter_cpu_display_mmio.vvp
