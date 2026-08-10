@@ -4,9 +4,9 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
-> **Current branch:** `milestone-7`  
-> **Current checkpoint:** Milestone 8 controller architecture is selected; controller MMIO/interconnect implementation is next.
-> **Verified predecessor:** `m6-verified` = `68cd6eed26e18afe2428702e3a71d921fc099693`
+> **Current branch:** `milestone-8`
+> **Current checkpoint:** M8B-1 controller MMIO and CPU/interconnect integration are implemented and verified in simulation; production MiSTer controller wiring is next.
+> **Verified predecessor:** `m7-verified` = `1fbe70ed3168238b6b1576638f7be700ed65426d`
 ---
 
 ## Project Status
@@ -21,7 +21,7 @@ Jupiter is **not an emulator of an existing console**. It is being designed as i
 | 5 | Hardware 2D graphics | Verified |
 | 6 | DMA and three-master SDRAM arbitration | **Verified — `m6-verified`** |
 | 7 | PCM audio | **Verified in simulation — `m7-verified`** |
-| 8 | Controllers and core peripherals | **In progress — architecture selected; implementation next** |
+| 8 | Controllers and core peripherals | **In progress — M8B-1 verified; production input wiring next** |
 | 9+ | Firmware, devkit, 3D, HPS services, etc. | Not yet implemented |
 Milestones are developed incrementally with deterministic simulation coverage. Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.
 
@@ -313,23 +313,27 @@ The `milestone-7` branch starts directly from `m6-verified`.
 
 ## Current Next Step
 
-**M8B-1 — implement controller MMIO and CPU/interconnect integration.**
+**M8B-2 — integrate production MiSTer controller inputs.**
 
-The selected M8A architecture uses all six MiSTer digital joystick words as
-bit-preserving, read-only 32-bit controller state registers:
+M8B-1 now provides the verified CPU-visible controller foundation:
 
-1. add `rtl/peripherals/jupiter_controllers.sv`;
-2. implement `0x00001400–0x000014FF` controller MMIO;
-3. expose `CONTROLLER_0_STATE` through `CONTROLLER_5_STATE` at `0x1400`
-   through `0x1414`;
-4. return zero for reserved aligned controller offsets;
-5. make writes deterministic no-ops;
-6. add the controller target to `jupiter_interconnect`;
-7. integrate it into `jupiter_cpu_subsystem`;
-8. add focused deterministic peripheral/interconnect/CPU-MMIO tests.
+- six read-only 32-bit controller-state inputs;
+- `CONTROLLER_0_STATE` through `CONTROLLER_5_STATE`;
+- controller MMIO at `0x00001400–0x000014FF`;
+- deterministic reserved-zero and ignored-write behavior;
+- CPU/interconnect/subsystem integration;
+- focused peripheral, interconnect, and CPU-MMIO regressions.
 
-M8B-1 will use directly driven controller inputs in simulation. Production
-`hps_io`/`Template.sv` wiring follows in M8B-2.
+The production `jupiter_system` path deliberately still supplies deterministic
+zero controller values.
+
+M8B-2 will replace that temporary boundary with the selected MiSTer path:
+
+1. expose six controller-state inputs on `jupiter_system`;
+2. declare and connect `joystick_0` through `joystick_5` in `Template.sv`;
+3. propagate each 32-bit word bit-for-bit into Jupiter;
+4. add production wrapper/topology verification;
+5. rerun all previous and Milestone 8 regressions.
 
 ---
 

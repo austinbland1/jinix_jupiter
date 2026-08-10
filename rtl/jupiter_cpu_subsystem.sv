@@ -6,6 +6,16 @@ module jupiter_cpu_subsystem
     // MiSTer-reported installed external SDRAM size.
     input  wire [15:0] sdram_sz,
 
+    // M8B-1 controller-state boundary.
+    //
+    // Production hps_io wiring is deferred to M8B-2.
+    input  wire [31:0] controller_0_state,
+    input  wire [31:0] controller_1_state,
+    input  wire [31:0] controller_2_state,
+    input  wire [31:0] controller_3_state,
+    input  wire [31:0] controller_4_state,
+    input  wire [31:0] controller_5_state,
+
     // Physical external SDR SDRAM interface.
     //
     // SDRAM_CLK remains a later top-level integration concern.
@@ -78,6 +88,15 @@ module jupiter_cpu_subsystem
     wire  [3:0] audio_wstrb;
     wire [31:0] audio_rdata;
     wire        audio_ready;
+
+    // Controller input-MMIO target interface.
+    wire        controller_valid;
+    wire        controller_write;
+    wire [31:0] controller_addr;
+    wire [31:0] controller_wdata;
+    wire  [3:0] controller_wstrb;
+    wire [31:0] controller_rdata;
+    wire        controller_ready;
 
     // CPU external-SDRAM target interface from the interconnect.
 wire        sdram_valid;
@@ -195,6 +214,14 @@ wire        sdram_valid;
         .audio_wstrb (audio_wstrb),
         .audio_rdata (audio_rdata),
         .audio_ready (audio_ready),
+
+        .controller_valid (controller_valid),
+        .controller_write (controller_write),
+        .controller_addr  (controller_addr),
+        .controller_wdata (controller_wdata),
+        .controller_wstrb (controller_wstrb),
+        .controller_rdata (controller_rdata),
+        .controller_ready (controller_ready),
 
         .sdram_valid (sdram_valid),
 .sdram_write (sdram_write),
@@ -385,6 +412,25 @@ wire        sdram_valid;
 
         .audio_l (audio_l),
         .audio_r (audio_r)
+    );
+
+    jupiter_controllers controllers
+    (
+        .valid (controller_valid),
+        .write (controller_write),
+        .addr  (controller_addr),
+        .wdata (controller_wdata),
+        .wstrb (controller_wstrb),
+
+        .controller_0_state (controller_0_state),
+        .controller_1_state (controller_1_state),
+        .controller_2_state (controller_2_state),
+        .controller_3_state (controller_3_state),
+        .controller_4_state (controller_4_state),
+        .controller_5_state (controller_5_state),
+
+        .rdata (controller_rdata),
+        .ready (controller_ready)
     );
 
 endmodule

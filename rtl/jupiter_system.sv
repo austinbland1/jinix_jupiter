@@ -63,6 +63,15 @@ module jupiter_system
 
         .sdram_sz   (sdram_sz),
 
+        // M8B-1 keeps production controller inputs deterministic until
+        // Template/hps_io integration in M8B-2.
+        .controller_0_state (32'h00000000),
+        .controller_1_state (32'h00000000),
+        .controller_2_state (32'h00000000),
+        .controller_3_state (32'h00000000),
+        .controller_4_state (32'h00000000),
+        .controller_5_state (32'h00000000),
+
         .audio_l    (AUDIO_L),
         .audio_r    (AUDIO_R),
 

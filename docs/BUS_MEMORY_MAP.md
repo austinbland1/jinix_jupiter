@@ -93,7 +93,7 @@ The complete Milestone 6 DMA arbitration contract is documented in
 | `0x00001100` | `0x000011FF` | 256 B | GPU 2D control MMIO | Integrated in M5B-2 |
 | `0x00001200` | `0x000012FF` | 256 B | DMA control MMIO | Integrated in M6B-2 |
 | `0x00001300` | `0x000013FF` | 256 B | PCM audio control MMIO | Integrated in M7 |
-| `0x00001400` | `0x000014FF` | 256 B | Controller input MMIO | Selected for M8 |
+| `0x00001400` | `0x000014FF` | 256 B | Controller input MMIO | Integrated in M8B-1 |
 | `0x10000000` | `0x17FFFFFF` | 128 MiB maximum aperture | External SDRAM | Integrated in M4 |
 
 These regions do not overlap.
@@ -233,8 +233,8 @@ Reserved aligned offsets read zero. Writes complete with no state change.
 The full selected contract is documented in
 `docs/CONTROLLER_ARCHITECTURE.md`.
 
-This aperture is selected architecturally in M8A and becomes an implemented
-interconnect target in M8B-1.
+This aperture was selected architecturally in M8A and is implemented as a
+dedicated interconnect target in M8B-1.
 
 ## 8. Invalid and Unmapped Accesses
 
@@ -276,14 +276,12 @@ for a valid aligned request:
 3. GPU control MMIO for `0x00001100` through `0x000011FF`;
 4. DMA control MMIO for `0x00001200` through `0x000012FF`;
 5. PCM audio MMIO for `0x00001300` through `0x000013FF`;
-6. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
-7. otherwise the deterministic unmapped response.
+6. controller input MMIO for `0x00001400` through `0x000014FF`;
+7. the external-SDRAM path for `0x10000000` through `0x17FFFFFF`;
+8. otherwise the deterministic unmapped response.
 
-The selected Milestone 8 controller range `0x00001400–0x000014FF` remains
-unmapped until M8B-1 integrates its interconnect target.
-
-The implemented GPU, DMA, and audio MMIO targets are distinct decoded targets
-and do not overlap RAM, scratch MMIO, SDRAM, or each other.
+The implemented GPU, DMA, audio, and controller MMIO targets are distinct
+decoded targets and do not overlap RAM, scratch MMIO, SDRAM, or each other.
 
 Within the maximum SDRAM aperture, the SDRAM path permits a physical
 transaction only when the reported SDRAM configuration is valid and the

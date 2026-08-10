@@ -302,7 +302,7 @@ module jupiter_interconnect_audio_tb;
 
 
         // Address after audio aperture.
-        m_addr = 32'h00001400;
+        m_addr = 32'h00001500;
         m_write = 1'b0;
         m_wstrb = 4'b0000;
 

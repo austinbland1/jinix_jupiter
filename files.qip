@@ -12,6 +12,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_arbiter.
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_frontend.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_controller.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/peripherals/jupiter_mmio_scratch.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/peripherals/jupiter_controllers.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/gpu/jupiter_gpu_2d.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/dma/jupiter_dma.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/audio/jupiter_audio.sv

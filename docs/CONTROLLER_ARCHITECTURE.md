@@ -203,7 +203,7 @@ No HPS-side game logic is introduced.
 
 ### M8B-1 — Controller MMIO and interconnect
 
-Implement:
+Implemented and verified in simulation:
 
 - `rtl/peripherals/jupiter_controllers.sv`;
 - six 32-bit controller-state inputs;
@@ -213,7 +213,9 @@ Implement:
 - CPU-subsystem integration;
 - focused peripheral, interconnect, and CPU-MMIO tests.
 
-Production `hps_io` wiring is not required for M8B-1.
+M8B-1 intentionally leaves the production `hps_io` connection for the next
+checkpoint. `jupiter_system` supplies deterministic zero values to the six new
+CPU-subsystem controller inputs until M8B-2.
 
 ### M8B-2 — Production MiSTer input wiring
 
@@ -227,6 +229,22 @@ Integrate:
 ---
 
 ## 10. Deterministic Verification Plan
+
+M8B-1 automated evidence currently includes:
+
+- `controller-regs-test` for all six raw state registers, bit preservation,
+  immediate visibility, reserved-zero behavior, and ignored writes;
+- `interconnect-controller-test` for aperture decode, wait-state propagation,
+  forwarding, alignment, boundary behavior, and preservation of adjacent
+  audio/SDRAM targets;
+- `cpu-controller-mmio-test` for CPU-visible reads/writes through the production
+  CPU/interconnect/subsystem path and preservation of unrelated MMIO state;
+- the legacy generic and audio interconnect regressions updated so the first
+  unmapped aligned address after the controller aperture is `0x00001500`;
+- the complete repository regression, which remains green with M8B-1 present.
+
+Production `hps_io`/`Template.sv` propagation remains an M8B-2 verification
+requirement.
 
 Milestone 8 implementation tests must verify:
 

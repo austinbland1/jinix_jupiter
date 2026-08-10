@@ -203,7 +203,7 @@ are documented in `docs/BUS_MEMORY_MAP.md`:
 | `0x00001100`–`0x000011FF` | GPU 2D control MMIO | Integrated in M5B-2 |
 | `0x00001200`–`0x000012FF` | DMA control MMIO | Integrated in M6B-2 |
 | `0x00001300`–`0x000013FF` | PCM audio control MMIO | Integrated in M7 |
-| `0x00001400`–`0x000014FF` | Controller input MMIO | Selected for M8 |
+| `0x00001400`–`0x000014FF` | Controller input MMIO | Integrated in M8B-1 |
 | `0x10000000`–`0x17FFFFFF` | External SDRAM maximum aperture | Selected for M4 |
 
 The usable SDRAM portion depends on reported installed capacity:
@@ -298,10 +298,10 @@ Milestone 8 selects Jupiter's initial controller-input architecture.
 
 - `hps_io` exposes six digital 32-bit joystick words:
   `joystick_0` through `joystick_5`.
-- Jupiter will expose all six words bit-for-bit to software.
+- Jupiter exposes all six words bit-for-bit to software through the M8B-1 controller MMIO target.
 - No semantic button-name remapping is invented because the repository does
   not currently establish an authoritative name-to-bit contract.
-- Controller MMIO is selected at `0x00001400–0x000014FF`.
+- Controller MMIO is integrated at `0x00001400–0x000014FF`.
 - The initial interface is read-only and polling-based.
 - Analog sticks, keyboard, mouse, paddles, spinners, rumble, light-gun/HID
   facilities, and interrupt-on-change are not selected for the initial
@@ -413,8 +413,9 @@ are treated as current architecture; only their future extensions remain open.
 
 ### Controller / Peripheral Register Design
 
-- Milestone 8 selects six read-only 32-bit digital controller-state registers
-  backed directly by MiSTer `joystick_0` through `joystick_5`.
+- M8B-1 implements six read-only 32-bit digital controller-state registers.
+- M8B-2 will back those subsystem inputs directly with MiSTer `joystick_0`
+  through `joystick_5`.
 - The controller aperture is `0x00001400–0x000014FF`; implemented registers
   occupy `0x1400` through `0x1414`.
 - Reserved aligned offsets read zero and writes have no effect.

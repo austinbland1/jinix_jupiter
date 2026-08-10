@@ -58,6 +58,16 @@ module jupiter_interconnect
     input  wire [31:0] audio_rdata,
     input  wire        audio_ready,
 
+    // Milestone 8 controller input-MMIO target.
+    output wire        controller_valid,
+    output wire        controller_write,
+    output wire [31:0] controller_addr,
+    output wire [31:0] controller_wdata,
+    output wire  [3:0] controller_wstrb,
+
+    input  wire [31:0] controller_rdata,
+    input  wire        controller_ready,
+
     // Milestone 4 external SDRAM target.
 output wire        sdram_valid,
     output wire        sdram_write,
@@ -81,6 +91,9 @@ output wire        sdram_valid,
 
     localparam [31:0] AUDIO_START = 32'h00001300;
     localparam [31:0] AUDIO_END   = 32'h000013FF;
+
+    localparam [31:0] CONTROLLER_START = 32'h00001400;
+    localparam [31:0] CONTROLLER_END   = 32'h000014FF;
 
     localparam [31:0] SDRAM_START = 32'h10000000;
 localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
@@ -114,6 +127,12 @@ localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
         aligned &&
         (m_addr >= AUDIO_START) &&
         (m_addr <= AUDIO_END);
+
+    wire controller_selected =
+        m_valid &&
+        aligned &&
+        (m_addr >= CONTROLLER_START) &&
+        (m_addr <= CONTROLLER_END);
 
     wire sdram_selected =
 m_valid &&
@@ -150,6 +169,12 @@ m_valid &&
     assign audio_wdata = m_wdata;
     assign audio_wstrb = m_wstrb;
 
+    assign controller_valid = controller_selected;
+    assign controller_write = m_write;
+    assign controller_addr  = m_addr;
+    assign controller_wdata = m_wdata;
+    assign controller_wstrb = m_wstrb;
+
     assign sdram_valid = sdram_selected;
 assign sdram_write = m_write;
     assign sdram_addr  = m_addr;
@@ -165,18 +190,20 @@ assign sdram_write = m_write;
         !m_valid       ? 1'b0 :
         ram_selected   ? ram_ready :
         mmio_selected  ? mmio_ready :        gpu_selected   ? gpu_ready :
-        dma_selected   ? dma_ready :
-        audio_selected ? audio_ready :
-        sdram_selected ? sdram_ready :
+        dma_selected        ? dma_ready :
+        audio_selected      ? audio_ready :
+        controller_selected ? controller_ready :
+        sdram_selected      ? sdram_ready :
 1'b1;
 
     assign m_rdata =
         !m_valid       ? 32'h00000000 :
         ram_selected   ? ram_rdata :
         mmio_selected  ? mmio_rdata :        gpu_selected   ? gpu_rdata :
-        dma_selected   ? dma_rdata :
-        audio_selected ? audio_rdata :
-        sdram_selected ? sdram_rdata :
+        dma_selected        ? dma_rdata :
+        audio_selected      ? audio_rdata :
+        controller_selected ? controller_rdata :
+        sdram_selected      ? sdram_rdata :
 32'h00000000;
 
 endmodule
