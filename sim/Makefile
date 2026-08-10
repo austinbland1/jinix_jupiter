@@ -505,3 +505,24 @@ clean: m11b2b-clean
 
 m11b2b-clean:
 	rm -f jupiter_video_scanout.vvp
+
+# ============================================================
+# Milestone 11B-2c - functional framebuffer line-buffer scanout
+# ============================================================
+
+.PHONY: m11b2c-test \
+	video-scanout-fetch-test \
+	m11b2c-clean
+
+test: m11b2c-test
+
+m11b2c-test: m11b2b-test video-scanout-fetch-test
+
+video-scanout-fetch-test:
+	iverilog -g2012 -s jupiter_video_scanout_fetch_tb -o jupiter_video_scanout_fetch.vvp ../rtl/video/jupiter_video_scanout.sv jupiter_video_scanout_fetch_tb.sv
+	vvp -n jupiter_video_scanout_fetch.vvp
+
+clean: m11b2c-clean
+
+m11b2c-clean:
+	rm -f jupiter_video_scanout_fetch.vvp

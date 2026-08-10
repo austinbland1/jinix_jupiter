@@ -22,8 +22,8 @@ module jupiter_video_scanout
 
     // Read-only scanout SDRAM master.
     //
-    // M11B-2b intentionally emits no requests yet. The line-buffer fetch
-    // stage will become the first functional producer.
+    // Each accepted request fetches one aligned 32-bit word containing two
+    // adjacent RGB565 framebuffer pixels.
     output wire        sdram_valid,
     output wire [31:0] sdram_addr,
     input  wire [31:0] sdram_rdata,
@@ -60,9 +60,31 @@ module jupiter_video_scanout
     reg [15:0] active_width;
     reg [15:0] active_height;
 
-    // M11B line-fetch logic will set this sticky flag.
-    // M11B-2b establishes reset/read/explicit-clear semantics.
+    // Sticky display underflow state.
     reg underflow_sticky;
+
+    // Two 320-pixel RGB565 line buffers. A buffer becomes visible only after
+    // every word for its tagged source line has completed.
+    reg [15:0] line_buffer_0 [0:319];
+    reg [15:0] line_buffer_1 [0:319];
+
+    reg        buffer_0_valid;
+    reg        buffer_1_valid;
+    reg [15:0] buffer_0_line;
+    reg [15:0] buffer_1_line;
+
+    // The currently displayed physical line is committed to one completed
+    // buffer at its line boundary. If no completed source line exists at
+    // that boundary, the entire affected physical line remains black.
+    reg        display_line_valid;
+    reg        display_buffer_select;
+
+    // Sequential read-only line prefetch state.
+    reg        fetch_active;
+    reg        fetch_buffer_select;
+    reg [15:0] fetch_line;
+    reg [15:0] fetch_word_index;
+    reg [15:0] next_fetch_line;
 
     // Selected raster counters.
     reg [9:0] hc;
@@ -128,6 +150,77 @@ module jupiter_video_scanout
         (hc == 10'd637) &&
         (vc == (active_physical_lines - 10'd1));
 
+    wire line_boundary =
+        advance_pixel &&
+        (hc == 10'd637);
+
+    wire [15:0] display_source_line =
+        scandouble ?
+            {7'd0, vc[9:1]} :
+            {6'd0, vc};
+
+    wire [9:0] next_raster_line =
+        (vc == raster_last_line) ?
+            10'd0 :
+            (vc + 10'd1);
+
+    wire [15:0] next_source_line =
+        scandouble ?
+            {7'd0, next_raster_line[9:1]} :
+            {6'd0, next_raster_line};
+
+    wire next_visible_source_needed =
+        active_enable &&
+        (next_raster_line < active_physical_lines) &&
+        (next_source_line < active_height);
+
+    wire [15:0] fetch_last_word_index =
+        (active_width >> 1) -
+        16'd1;
+
+    wire fetch_last_word =
+        fetch_active &&
+        (fetch_word_index == fetch_last_word_index);
+
+    wire fetch_completes_line =
+        fetch_last_word &&
+        sdram_ready;
+
+    wire next_buffer_0_ready =
+        (buffer_0_valid &&
+         (buffer_0_line == next_source_line)) ||
+        (fetch_completes_line &&
+         !fetch_buffer_select &&
+         (fetch_line == next_source_line));
+
+    wire next_buffer_1_ready =
+        (buffer_1_valid &&
+         (buffer_1_line == next_source_line)) ||
+        (fetch_completes_line &&
+         fetch_buffer_select &&
+         (fetch_line == next_source_line));
+
+    wire next_source_buffer_ready =
+        next_buffer_0_ready ||
+        next_buffer_1_ready;
+
+    // During vertical blank, prefetch at most the first two source lines.
+    // During visible output, stay exactly one source line ahead.
+    wire [15:0] prefetch_limit_line =
+        VBlank ?
+            16'd1 :
+            (display_source_line + 16'd1);
+
+    wire [31:0] fetch_line_pixels =
+        {16'd0, fetch_line} *
+        {16'd0, active_width};
+
+    wire [31:0] fetch_line_byte_offset =
+        fetch_line_pixels << 1;
+
+    wire [31:0] fetch_word_byte_offset =
+        {14'd0, fetch_word_index, 2'b00};
+
     assign ready =
         valid;
 
@@ -155,19 +248,67 @@ module jupiter_video_scanout
                 ((vc >= 10'd245) &&
                  (vc < 10'd248));
 
-    // M11B-2b intentionally renders deterministic black.
-    assign video_r = 8'h00;
-    assign video_g = 8'h00;
-    assign video_b = 8'h00;
+    // Functional read-only framebuffer fetch stream.
+    assign sdram_valid =
+        fetch_active;
 
-    // M11B-2b line fetch is intentionally not active yet.
-    assign sdram_valid = 1'b0;
-    assign sdram_addr  = 32'h00000000;
+    assign sdram_addr =
+        active_base +
+        fetch_line_byte_offset +
+        fetch_word_byte_offset;
 
-    // Silence unused-input warnings conceptually until the fetch stage
-    // consumes these target responses.
-    wire unused_sdram_response =
-        ^{sdram_rdata, sdram_ready};
+    function [7:0] expand_rgb5;
+        input [4:0] value;
+        begin
+            expand_rgb5 =
+                {value, value[4:2]};
+        end
+    endfunction
+
+    function [7:0] expand_rgb6;
+        input [5:0] value;
+        begin
+            expand_rgb6 =
+                {value, value[5:4]};
+        end
+    endfunction
+
+    reg [15:0] display_pixel;
+
+    always @* begin
+        display_pixel =
+            16'h0000;
+
+        if (active_enable &&
+            display_line_valid &&
+            !VBlank &&
+            (hc < active_width) &&
+            (hc < 10'd320) &&
+            (display_source_line < active_height)) begin
+
+            if (display_buffer_select)
+                display_pixel =
+                    line_buffer_1[hc];
+            else
+                display_pixel =
+                    line_buffer_0[hc];
+        end
+    end
+
+    assign video_r =
+        expand_rgb5(
+            display_pixel[15:11]
+        );
+
+    assign video_g =
+        expand_rgb6(
+            display_pixel[10:5]
+        );
+
+    assign video_b =
+        expand_rgb5(
+            display_pixel[4:0]
+        );
 
     // CPU-visible reads.
     always @* begin
@@ -216,6 +357,20 @@ module jupiter_video_scanout
             active_height <= 16'd0;
 
             underflow_sticky <= 1'b0;
+
+            buffer_0_valid <= 1'b0;
+            buffer_1_valid <= 1'b0;
+            buffer_0_line  <= 16'd0;
+            buffer_1_line  <= 16'd0;
+
+            display_line_valid    <= 1'b0;
+            display_buffer_select <= 1'b0;
+
+            fetch_active        <= 1'b0;
+            fetch_buffer_select <= 1'b0;
+            fetch_line          <= 16'd0;
+            fetch_word_index    <= 16'd0;
+            next_fetch_line     <= 16'd0;
 
             hc <= 10'd0;
             vc <= 10'd0;
@@ -287,9 +442,59 @@ module jupiter_video_scanout
                 endcase
             end
 
+            // Select the complete source buffer for the next physical line.
+            // A missing line is committed black for that entire physical
+            // display line even if its fetch finishes later.
+            if (line_boundary) begin
+                if (next_visible_source_needed) begin
+                    if (next_buffer_0_ready) begin
+                        display_line_valid <=
+                            1'b1;
+
+                        display_buffer_select <=
+                            1'b0;
+                    end else if (next_buffer_1_ready) begin
+                        display_line_valid <=
+                            1'b1;
+
+                        display_buffer_select <=
+                            1'b1;
+                    end else begin
+                        display_line_valid <=
+                            1'b0;
+
+                        display_buffer_select <=
+                            1'b0;
+
+                        underflow_sticky <=
+                            1'b1;
+                    end
+                end else begin
+                    display_line_valid <=
+                        1'b0;
+
+                    display_buffer_select <=
+                        1'b0;
+                end
+            end
+
             // Snapshot the complete shadow configuration exactly at the
             // transition into the selected 240-line vertical blank.
+            //
+            // A valid new frame always restarts prefetch from source line 0.
             if (vertical_blank_snapshot) begin
+                buffer_0_valid <=
+                    1'b0;
+
+                buffer_1_valid <=
+                    1'b0;
+
+                display_line_valid <=
+                    1'b0;
+
+                display_buffer_select <=
+                    1'b0;
+
                 if (shadow_config_valid) begin
                     active_enable <=
                         1'b1;
@@ -302,6 +507,21 @@ module jupiter_video_scanout
 
                     active_height <=
                         shadow_height;
+
+                    fetch_active <=
+                        1'b1;
+
+                    fetch_buffer_select <=
+                        1'b0;
+
+                    fetch_line <=
+                        16'd0;
+
+                    fetch_word_index <=
+                        16'd0;
+
+                    next_fetch_line <=
+                        16'd1;
                 end else begin
                     active_enable <=
                         1'b0;
@@ -314,6 +534,107 @@ module jupiter_video_scanout
 
                     active_height <=
                         16'd0;
+
+                    fetch_active <=
+                        1'b0;
+
+                    fetch_buffer_select <=
+                        1'b0;
+
+                    fetch_line <=
+                        16'd0;
+
+                    fetch_word_index <=
+                        16'd0;
+
+                    next_fetch_line <=
+                        16'd0;
+                end
+            end else begin
+                // Capture two RGB565 pixels from each completed 32-bit word.
+                if (fetch_active &&
+                    sdram_ready) begin
+
+                    if (fetch_buffer_select) begin
+                        line_buffer_1[
+                            (fetch_word_index << 1)
+                        ] <=
+                            sdram_rdata[15:0];
+
+                        line_buffer_1[
+                            (fetch_word_index << 1) +
+                            16'd1
+                        ] <=
+                            sdram_rdata[31:16];
+                    end else begin
+                        line_buffer_0[
+                            (fetch_word_index << 1)
+                        ] <=
+                            sdram_rdata[15:0];
+
+                        line_buffer_0[
+                            (fetch_word_index << 1) +
+                            16'd1
+                        ] <=
+                            sdram_rdata[31:16];
+                    end
+
+                    if (fetch_last_word) begin
+                        fetch_active <=
+                            1'b0;
+
+                        fetch_word_index <=
+                            16'd0;
+
+                        if (fetch_buffer_select) begin
+                            buffer_1_valid <=
+                                1'b1;
+
+                            buffer_1_line <=
+                                fetch_line;
+                        end else begin
+                            buffer_0_valid <=
+                                1'b1;
+
+                            buffer_0_line <=
+                                fetch_line;
+                        end
+                    end else begin
+                        fetch_word_index <=
+                            fetch_word_index +
+                            16'd1;
+                    end
+                end
+
+                // Start one sequential source-line prefetch whenever the
+                // current look-ahead policy permits it.
+                if (!fetch_active &&
+                    active_enable &&
+                    (next_fetch_line < active_height) &&
+                    (next_fetch_line <= prefetch_limit_line)) begin
+
+                    fetch_active <=
+                        1'b1;
+
+                    fetch_buffer_select <=
+                        next_fetch_line[0];
+
+                    fetch_line <=
+                        next_fetch_line;
+
+                    fetch_word_index <=
+                        16'd0;
+
+                    next_fetch_line <=
+                        next_fetch_line +
+                        16'd1;
+
+                    if (next_fetch_line[0])
+                        buffer_1_valid <=
+                            1'b0;
+                    else
+                        buffer_0_valid <=
+                            1'b0;
                 end
             end
 
