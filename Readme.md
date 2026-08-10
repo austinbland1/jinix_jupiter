@@ -4,9 +4,9 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
-> **Current branch:** `milestone-9`
-> **Current checkpoint:** Milestone 9 BIOS and host development tools are complete and acceptance-verified; Milestone 10 fixed-function 3D is next.
-> **Verified predecessor:** `m8-verified` = `3f9ede50e43e974b6980acbf4bd5eb47fcd4b95a`
+> **Current branch:** `milestone-10`
+> **Current checkpoint:** M10A fixed-function 3D architecture is selected and documented; M10B-1 GPU integration shell and MMIO are next.
+> **Verified predecessor:** `m9-verified` = `c989b080071be8336211f21dda52cdb91d266ee7`
 ---
 
 ## Project Status
@@ -314,11 +314,11 @@ The `milestone-7` branch starts directly from `m6-verified`.
 
 ## Current Next Step
 
-**Milestone 10 — Fixed-Function 3D.**
+**M10B-1 — integrate the selected 3D shell without changing the external SDRAM-master contract.**
 
-Milestone 9 is complete: Jupiter now has original boot firmware, a minimum host assembler, deterministic system-image construction, and a reproducible source-to-execution simulation workflow.
+M10A selects a bounded fixed-function 3D path using the existing GPU MMIO aperture and GPU SDRAM master. The 3D engine shares that master with the verified 2D renderer through deterministic internal transaction arbitration, preserving the existing CPU → GPU → DMA system arbiter.
 
-The verified M9 path resets at `0x00000000`, executes the BIOS, transfers to the host-built application at `0x00000400`, writes `42` to MMIO scratch, and halts at `0x0000040C`.
+The initial renderer accepts one post-transform triangle per START and selects top-left coverage, RGB565 rendering, 16-bit depth, perspective-correct nearest texture mapping, and constant-alpha blending.
 
 ---
 

@@ -200,7 +200,7 @@ are documented in `docs/BUS_MEMORY_MAP.md`:
 | --- | --- | --- |
 | `0x00000000`–`0x00000FFF` | Internal/test RAM | Implemented in M3 |
 | `0x00001000`–`0x00001003` | MMIO scratch register | Implemented in M3 |
-| `0x00001100`–`0x000011FF` | GPU 2D control MMIO | Integrated in M5B-2 |
+| `0x00001100`-`0x000011FF` | GPU control MMIO | 2D integrated in M5B-2; M10A reserves `0x1140`-`0x117F` for 3D |
 | `0x00001200`–`0x000012FF` | DMA control MMIO | Integrated in M6B-2 |
 | `0x00001300`–`0x000013FF` | PCM audio control MMIO | Integrated in M7 |
 | `0x00001400`–`0x000014FF` | Controller input MMIO | Integrated in M8B-1 |
@@ -260,12 +260,20 @@ The selected architecture is documented in `docs/SDRAM_ARCHITECTURE.md`.
 
 ### Fixed-Function 3D Graphics
 
-**PROPOSED.** Fixed-function 3D is a later Jinix Jupiter design target, not part of Milestone 0 or the immediate development roadmap. Provisional targets include:
+**MILESTONE 10 SELECTED.** M10A selects a bounded post-transform fixed-function triangle renderer. The complete contract is documented in `docs/GPU_3D_ARCHITECTURE.md`.
 
-- Triangle rasterizer, texture mapping, depth buffering (Z-buffer), perspective-correct interpolation, blending — all TBD as to implementation details and exact precision.
-- Nearest / bilinear texture sampling may be supported; exact sampling behavior remains TBD.
-- FPGA DSP blocks should be used where advantageous for fixed-point math operations (coordinate transformation, interpolation).
-- Tile-oriented, bandwidth-efficient rendering is an important design goal because external-memory bandwidth is limited. — exact polygon throughput target, texture-cache size, Z-buffer layout, and clock rates remain TBD.
+- 3D uses `0x00001140`-`0x0000117F` inside the existing GPU MMIO aperture.
+- The external CPU/GPU/DMA SDRAM arbiter remains unchanged.
+- 2D and 3D share the existing GPU SDRAM master through deterministic internal arbitration.
+- One accepted START renders one post-transform triangle.
+- Coverage uses pixel-center edge functions, counter-clockwise front faces, and the top-left fill rule.
+- Texture and framebuffer pixels use RGB565.
+- The selected first sampler is perspective-correct nearest-neighbor; bilinear filtering is deferred.
+- Depth is unsigned 16-bit with strict LESS testing.
+- Optional blending is constant-alpha RGB565 source-over.
+- Vertex and interpolation arithmetic is fixed-point with explicitly sized intermediates.
+- FPGA DSP inference is permitted, but M10A makes no resource, frequency, or timing-closure claim.
+- Transforms, lighting, geometric clipping, command FIFOs, mipmapping, anisotropic filtering, and programmable shaders are deferred.
 
 ### PCM Audio System
 
@@ -414,7 +422,7 @@ are treated as current architecture; only their future extensions remain open.
 
 ### Fixed-Function 3D Organization
 
-- When 3D is implemented later, how will triangle setup, rasterization, texture mapping, Z-buffer, and blending be organized in fixed-function hardware? Design remains TBD.
+M10A resolves the initial 3D organization. A new `jupiter_gpu_3d` engine is integrated behind the existing subsystem-visible GPU interface. The M5 2D contract remains intact. The 2D and 3D engines use distinct MMIO subranges and share the single GPU SDRAM master through deterministic non-preemptive two-way transaction arbitration. The verified system-level CPU -> GPU -> DMA arbitration contract remains unchanged. Register formats, rasterization rules, memory behavior, and staged implementation checkpoints are defined in `docs/GPU_3D_ARCHITECTURE.md`.
 
 ### FPGA DSP Resource Utilization
 
