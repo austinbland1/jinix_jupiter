@@ -5,7 +5,7 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
 > **Current branch:** `milestone-10`
-> **Current checkpoint:** M10D perspective-correct nearest-neighbor RGB565 texture mapping, deterministic RGB565 alpha blending, depth/texture/blend composition, and graphics-memory safety are implemented and fully regressed; M10E acceptance, contention, and Milestone 10 closeout are next.
+> **Current checkpoint:** Milestone 10 fixed-function 3D is complete and fully regressed, including deterministic rasterization, perspective-correct nearest-neighbor texture mapping, strict-LESS depth buffering, RGB565 blending, graphics-memory safety, and integrated 2D/3D plus system-level contention coverage; Milestone 11 integration, optimization, and release validation are next.
 > **Verified predecessor:** `m9-verified` = `c989b080071be8336211f21dda52cdb91d266ee7`
 ---
 

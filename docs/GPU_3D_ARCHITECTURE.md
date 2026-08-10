@@ -352,16 +352,53 @@ Milestone 5 compatibility suite passes, and the full `make -C sim test`
 repository regression passes with the real M10D Icarus Verilog commands
 registered.
 
-M10E performs final Milestone 10 acceptance, shared-memory contention
+M10E completes final Milestone 10 acceptance, shared-memory contention
 coverage, and full milestone closeout.
 
 ### M10D - Perspective texture and blending
 
 Add perspective-correct nearest RGB565 texture sampling and constant-alpha source-over blending with exact reference pixels.
 
-### M10E - Integrated acceptance
+### M10E - Integrated Acceptance and Milestone Closeout
 
-Exercise simultaneous 2D/3D operation, GPU/DMA contention, reference rendering, M5 regression, the full repository suite, and Milestone 10 closeout.
+**Implementation status: complete and fully regressed.**
+
+M10E closes Milestone 10 with integrated contention and acceptance coverage
+without changing the published M10D renderer RTL.
+
+The wrapper-level contention reference runs the real Milestone 5 2D renderer
+and the real Milestone 10 3D renderer simultaneously through the production
+internal 2D/3D SDRAM arbiter. The deterministic reference proves:
+
+- the 2D renderer completes exactly 33 source reads and 32 framebuffer writes;
+- the 3D flat triangle completes exactly 18 vertex reads and six RGB565
+  framebuffer writes;
+- the combined wrapper completes exactly 89 SDRAM transactions;
+- both real renderers present simultaneous requests and both win completed
+  contested transactions;
+- shared completions and request payloads route only to the granted renderer;
+- source resources remain read-only and all accesses retain documented
+  alignment and byte strobes;
+- no illegal or boundary-sentinel access occurs; and
+- all eleven wrapper-level graphics-memory sentinels remain intact.
+
+`m10e-test` is registered in the normal simulation regression. It includes the
+complete M10D perspective/texture/blend suite, the real 2D/3D wrapper
+contention reference, the production GPU/DMA contention reference, and the
+production three-master contention reference.
+
+The complete Milestone 5 compatibility suite passes after M10E registration.
+The full `make -C sim test` repository regression also passes with M10E
+included, and `make -C sim clean` removes all generated M10E/M10D products.
+
+All eight Milestone 10 acceptance criteria are satisfied: deterministic
+triangle coverage, reference texture mapping, overlapping depth resolution,
+documented perspective-correct interpolation, documented blending,
+graphics-memory isolation, preserved Milestone 5 2D behavior, and automatic
+pass/fail simulation reporting.
+
+Milestone 10 is therefore complete. Milestone 11 proceeds from the verified
+fixed-function 3D baseline.
 
 ## Explicit Non-Goals
 

@@ -388,14 +388,14 @@ Architectural targets for the 3D subsystem (to be confirmed during design) inclu
 - Reference rendered results suitable for automatic comparison in simulation.
 
 ### Acceptance Criteria
-- [ ] Selected triangle rasterization behavior produces deterministic expected coverage.
-- [ ] Selected texture-mapping behavior produces expected reference results.
-- [ ] Selected depth-buffering behavior correctly resolves tested overlapping geometry.
-- [ ] Perspective-correct interpolation behaves according to the documented design.
-- [ ] Implemented blending behaves according to the documented design.
-- [ ] Graphics-memory accesses remain within documented regions and do not corrupt unrelated state.
-- [ ] 2D functionality from Milestone 5 continues to pass regression tests.
-- [ ] Tests automatically report pass/fail.
+- [x] Selected triangle rasterization behavior produces deterministic expected coverage.
+- [x] Selected texture-mapping behavior produces expected reference results.
+- [x] Selected depth-buffering behavior correctly resolves tested overlapping geometry.
+- [x] Perspective-correct interpolation behaves according to the documented design.
+- [x] Implemented blending behaves according to the documented design.
+- [x] Graphics-memory accesses remain within documented regions and do not corrupt unrelated state.
+- [x] 2D functionality from Milestone 5 continues to pass regression tests.
+- [x] Tests automatically report pass/fail.
 
 ### Non-Goals
 - No unselected 3D features are required merely because they are long-term architectural targets (e.g., mipmap generation, anisotropic filtering).

@@ -425,3 +425,28 @@ m10d-clean:
 		jupiter_gpu_3d_texture.vvp \
 		jupiter_gpu_3d_blend.vvp \
 		jupiter_gpu_3d_texture_blend.vvp
+
+# ============================================================
+# Milestone 10E - integrated acceptance and contention
+# ============================================================
+
+.PHONY: m10e-test \
+	gpu-2d3d-contention-test \
+	m10e-clean
+
+test: m10e-test
+
+m10e-test: \
+	m10d-test \
+	gpu-2d3d-contention-test \
+	gpu-dma-contention-test \
+	three-master-contention-test
+
+gpu-2d3d-contention-test:
+	iverilog -g2012 -s jupiter_gpu_2d3d_contention_tb -o jupiter_gpu_2d3d_contention.vvp ../rtl/gpu/jupiter_gpu_2d3d_arbiter.sv ../rtl/gpu/jupiter_gpu_3d_raster.sv ../rtl/gpu/jupiter_gpu_3d.sv ../rtl/gpu/jupiter_gpu_2d.sv jupiter_gpu_2d3d_contention_tb.sv
+	vvp -n jupiter_gpu_2d3d_contention.vvp
+
+clean: m10e-clean
+
+m10e-clean:
+	rm -f jupiter_gpu_2d3d_contention.vvp
