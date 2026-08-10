@@ -5,7 +5,7 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
 > **Current branch:** `milestone-8`
-> **Current checkpoint:** M8B-2 production MiSTer controller wiring is implemented and verified in simulation; Milestone 8 acceptance closeout is next.
+> **Current checkpoint:** Milestone 8 controllers and core peripherals are verified in simulation; Milestone 9 is next.
 > **Verified predecessor:** `m7-verified` = `1fbe70ed3168238b6b1576638f7be700ed65426d`
 ---
 
@@ -21,7 +21,7 @@ Jupiter is **not an emulator of an existing console**. It is being designed as i
 | 5 | Hardware 2D graphics | Verified |
 | 6 | DMA and three-master SDRAM arbitration | **Verified — `m6-verified`** |
 | 7 | PCM audio | **Verified in simulation — `m7-verified`** |
-| 8 | Controllers and core peripherals | **In progress — M8B-2 verified; acceptance closeout next** |
+| 8 | Controllers and core peripherals | **Verified in simulation — `m8-verified`** |
 | 9+ | Firmware, devkit, 3D, HPS services, etc. | Not yet implemented |
 Milestones are developed incrementally with deterministic simulation coverage. Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.
 
@@ -313,23 +313,23 @@ The `milestone-7` branch starts directly from `m6-verified`.
 
 ## Current Next Step
 
-**Milestone 8 acceptance closeout.**
+**Milestone 9 is next.**
 
-M8B-1 and M8B-2 now provide the complete selected initial controller path:
+Milestone 8 is complete at the simulation-verification level.
 
-- six raw 32-bit MiSTer digital joystick words from `hps_io`;
-- bit-for-bit propagation through `Template.sv` and `jupiter_system`;
-- six read-only CPU-visible controller-state registers;
+The verified initial controller/peripheral subsystem now provides:
+
+- six raw 32-bit MiSTer digital controller words;
+- bit-for-bit production propagation from `hps_io` through Jupiter;
+- six deterministic CPU-visible read-only state registers;
 - controller MMIO at `0x00001400–0x000014FF`;
-- deterministic reserved-zero and ignored-write behavior;
-- no extra input latch, remapping layer, interrupt, or event FIFO;
-- focused controller-register, interconnect, CPU-MMIO, wrapper, and topology
-  verification;
-- a complete repository regression that remains green.
+- reserved-zero and ignored-write behavior;
+- no additional latch, event FIFO, interrupt, semantic remapping, or analog
+  interface in the selected initial design;
+- automated peripheral, interconnect, CPU-MMIO, wrapper, topology, and complete
+  repository regression coverage.
 
-The next checkpoint is to reconcile the six Milestone 8 roadmap acceptance
-criteria against this evidence, mark only the supported criteria complete, and
-create the verified Milestone 8 closeout checkpoint.
+The `m8-verified` tag identifies the accepted Milestone 8 simulation checkpoint.
 
 ---
 

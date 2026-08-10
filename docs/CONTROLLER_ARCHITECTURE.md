@@ -213,9 +213,10 @@ Implemented and verified in simulation:
 - CPU-subsystem integration;
 - focused peripheral, interconnect, and CPU-MMIO tests.
 
-M8B-1 intentionally leaves the production `hps_io` connection for the next
-checkpoint. `jupiter_system` supplies deterministic zero values to the six new
-CPU-subsystem controller inputs until M8B-2.
+M8B-1 initially held the six CPU-subsystem controller inputs at
+deterministic zero while the CPU-visible path was verified in isolation.
+M8B-2 replaces those temporary ties with the selected production
+`hps_io` -> `Template.sv` -> `jupiter_system` path.
 
 ### M8B-2 — Production MiSTer input wiring
 
@@ -235,7 +236,7 @@ Implemented and verified in simulation:
 
 ## 10. Deterministic Verification Plan
 
-M8B-1 automated evidence currently includes:
+Milestone 8 automated evidence includes:
 
 - `controller-regs-test` for all six raw state registers, bit preservation,
   immediate visibility, reserved-zero behavior, and ignored writes;
@@ -246,10 +247,37 @@ M8B-1 automated evidence currently includes:
   CPU/interconnect/subsystem path and preservation of unrelated MMIO state;
 - the legacy generic and audio interconnect regressions updated so the first
   unmapped aligned address after the controller aperture is `0x00001500`;
-- the complete repository regression, which remains green with M8B-1 present.
+- the M8B-2 wrapper regression for all six production controller words and
+  immediate propagation of state changes;
+- the M8B-2 static topology checker for exact `hps_io`/Template/system/subsystem
+  connectivity and exclusion of unselected input facilities;
+- the complete repository regression, which remains green with production
+  controller wiring present.
 
 Production `hps_io`/`Template.sv` propagation is verified by M8B-2 through
 the wrapper simulation and the static production-topology checker.
+
+### Milestone 8 acceptance closeout
+
+The selected implementation satisfies all six roadmap acceptance criteria:
+
+1. the six selected digital controller inputs are represented as exact raw
+   32-bit words with no semantic bit remapping;
+2. CPU reads deterministically return the corresponding controller state and
+   deterministic zero for reserved aligned offsets;
+3. controller state changes propagate according to the documented
+   no-extra-latch behavior and become visible immediately through the selected
+   synchronous hierarchy;
+4. no controller interrupt or status/event mechanism was selected, so there is
+   no additional interrupt/status behavior required for initial acceptance;
+5. unselected analog, keyboard, mouse, paddle, spinner, rumble, and other
+   framework input facilities remain outside the initial Milestone 8 contract;
+6. focused controller tests, production wrapper/topology checks, and the full
+   repository regression automatically pass or fail.
+
+Milestone 8 acceptance is therefore complete at the simulation-verification
+level. Synthesis, fitter/timing closure, and physical-hardware validation remain
+deferred to the roadmap stage that explicitly covers those activities.
 
 Milestone 8 implementation tests must verify:
 

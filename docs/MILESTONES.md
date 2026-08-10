@@ -311,12 +311,12 @@ Implement Jupiter's CPU-visible controller/peripheral subsystem, integrate it wi
 - Deterministic simulation tests under `sim/` exercising CPU reads of controller state and verifying correct propagation of documented input events.
 
 ### Acceptance Criteria
-- [ ] Selected controller inputs are represented correctly to Jupiter software, per documentation.
-- [ ] CPU reads return deterministic expected state from the selected interfaces.
-- [ ] State changes propagate according to documented timing/behavior, as verified in simulation.
-- [ ] Any implemented interrupt/status mechanism behaves as documented (if one is intentionally selected during design).
-- [ ] Unsupported/unselected input features are not required by this milestone.
-- [ ] Tests automatically report pass/fail.
+- [x] Selected controller inputs are represented correctly to Jupiter software, per documentation.
+- [x] CPU reads return deterministic expected state from the selected interfaces.
+- [x] State changes propagate according to documented timing/behavior, as verified in simulation.
+- [x] Any implemented interrupt/status mechanism behaves as documented (if one is intentionally selected during design).
+- [x] Unsupported/unselected input features are not required by this milestone.
+- [x] Tests automatically report pass/fail.
 
 ### Non-Goals
 - No analog input requirement merely because the MiSTer framework may expose it; analog support is only included if intentionally selected during design.
