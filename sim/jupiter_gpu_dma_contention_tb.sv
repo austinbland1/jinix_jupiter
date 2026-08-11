@@ -1033,22 +1033,39 @@ module jupiter_gpu_dma_contention_tb;
         //   192 logical writes
         //   388 logical transactions
         //
-        // Each logical transaction becomes two physical halves.
+        // Logical writes still produce two physical halfword WRITEs.
+        // Logical reads may share an aligned BL8 physical READ through
+        // the controller cache, reducing physical READ command count.
         // --------------------------------------------------------
 
+        $display(
+            "BL8_ASSERT jupiter_gpu_dma_contention_tb physical_read_count=%0d EXPECTED=139",
+            physical_read_count
+        );
+
         check(
-            physical_read_count == 392,
-            "196 logical reads produce 392 physical 16-bit READs"
+            physical_read_count == 139,
+            "BL8 physical physical_read_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_gpu_dma_contention_tb physical_write_count=%0d EXPECTED=384",
+            physical_write_count
         );
 
         check(
             physical_write_count == 384,
-            "192 logical writes produce 384 physical 16-bit WRITEs"
+            "BL8 physical physical_write_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_gpu_dma_contention_tb physical_active_count=%0d EXPECTED=523",
+            physical_active_count
         );
 
         check(
-            physical_active_count == 776,
-            "388 logical accesses produce 776 ACTIVE commands"
+            physical_active_count == 523,
+            "BL8 physical physical_active_count matches calibrated expectation"
         );
 
         check(

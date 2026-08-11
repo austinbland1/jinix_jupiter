@@ -1,4 +1,10 @@
 module jupiter_cpu_subsystem
+#(
+    parameter RAM_INIT_B0 = "",
+    parameter RAM_INIT_B1 = "",
+    parameter RAM_INIT_B2 = "",
+    parameter RAM_INIT_B3 = ""
+)
 (
     input  wire clk,
     input  wire reset,
@@ -456,6 +462,11 @@ wire        sdram_valid;
         .rdata (ram_rdata),
         .ready (ram_ready)
     );
+
+    defparam ram.INIT_B0 = RAM_INIT_B0;
+    defparam ram.INIT_B1 = RAM_INIT_B1;
+    defparam ram.INIT_B2 = RAM_INIT_B2;
+    defparam ram.INIT_B3 = RAM_INIT_B3;
 
     jupiter_mmio_scratch scratch
     (

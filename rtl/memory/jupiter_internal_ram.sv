@@ -1,4 +1,10 @@
 module jupiter_internal_ram
+#(
+    parameter INIT_B0 = "",
+    parameter INIT_B1 = "",
+    parameter INIT_B2 = "",
+    parameter INIT_B3 = ""
+)
 (
     input  wire        clk,
 
@@ -32,6 +38,24 @@ module jupiter_internal_ram
 
     (* ramstyle = "MLAB, no_rw_check" *)
     reg [7:0] memory_b3 [0:1023];
+
+    // Optional deterministic boot image.
+    //
+    // Empty defaults preserve the original simulation behavior.
+    // The production Template path supplies four byte-lane images.
+    initial begin
+        if (INIT_B0 != "")
+            $readmemh(INIT_B0, memory_b0);
+
+        if (INIT_B1 != "")
+            $readmemh(INIT_B1, memory_b1);
+
+        if (INIT_B2 != "")
+            $readmemh(INIT_B2, memory_b2);
+
+        if (INIT_B3 != "")
+            $readmemh(INIT_B3, memory_b3);
+    end
 
     wire [9:0] word_index = addr[11:2];
 

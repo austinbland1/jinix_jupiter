@@ -1955,22 +1955,39 @@ module jupiter_three_master_contention_tb;
         //   256 logical writes
         //   516 logical transactions
         //
-        // Each logical transaction is two physical 16-bit halves.
+        // Logical writes remain two physical 16-bit WRITEs.
+        // Logical reads may be supplied from an aligned BL8 cache fill,
+        // so physical READ command count is intentionally lower.
         // --------------------------------------------------------
 
+        $display(
+            "BL8_ASSERT jupiter_three_master_contention_tb physical_read_count=%0d EXPECTED=212",
+            physical_read_count
+        );
+
         check(
-            physical_read_count == 520,
-            "260 logical reads produce 520 physical 16-bit READs"
+            physical_read_count == 212,
+            "BL8 physical physical_read_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_three_master_contention_tb physical_write_count=%0d EXPECTED=512",
+            physical_write_count
         );
 
         check(
             physical_write_count == 512,
-            "256 logical writes produce 512 physical 16-bit WRITEs"
+            "BL8 physical physical_write_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_three_master_contention_tb physical_active_count=%0d EXPECTED=724",
+            physical_active_count
         );
 
         check(
-            physical_active_count == 1032,
-            "516 logical accesses produce 1032 ACTIVE commands"
+            physical_active_count == 724,
+            "BL8 physical physical_active_count matches calibrated expectation"
         );
 
         check(

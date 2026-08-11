@@ -816,22 +816,39 @@ module jupiter_gpu_sdram_contention_tb;
         // GPU: 132 reads + 128 writes = 260 logical accesses.
         //
         // Total: 201 reads, 192 writes, 393 logical accesses.
-        // Each logical access becomes two physical halfword accesses.
+        // Writes remain two physical halfword accesses per logical
+        // 32-bit write. Reads may be served from the BL8 read cache, so
+        // physical READ counts are lower than logical-halfword counts.
         // --------------------------------------------------------
 
+        $display(
+            "BL8_ASSERT jupiter_gpu_sdram_contention_tb physical_read_count=%0d EXPECTED=155",
+            physical_read_count
+        );
+
         check(
-            physical_read_count == 402,
-            "201 logical reads produce 402 physical 16-bit READs"
+            physical_read_count == 155,
+            "BL8 physical physical_read_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_gpu_sdram_contention_tb physical_write_count=%0d EXPECTED=384",
+            physical_write_count
         );
 
         check(
             physical_write_count == 384,
-            "192 logical writes produce 384 physical 16-bit WRITEs"
+            "BL8 physical physical_write_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_gpu_sdram_contention_tb physical_active_count=%0d EXPECTED=539",
+            physical_active_count
         );
 
         check(
-            physical_active_count == 786,
-            "393 logical accesses produce 786 ACTIVE commands"
+            physical_active_count == 539,
+            "BL8 physical physical_active_count matches calibrated expectation"
         );
 
         check(

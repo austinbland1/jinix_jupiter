@@ -1,4 +1,10 @@
 module jupiter_system
+#(
+    parameter RAM_INIT_B0 = "",
+    parameter RAM_INIT_B1 = "",
+    parameter RAM_INIT_B2 = "",
+    parameter RAM_INIT_B3 = ""
+)
 (
     input  wire       clk,
     input  wire       reset,
@@ -123,6 +129,11 @@ module jupiter_system
 
         .halted     (jupiter_cpu_halted)
     );
+
+    defparam cpu_subsystem.RAM_INIT_B0 = RAM_INIT_B0;
+    defparam cpu_subsystem.RAM_INIT_B1 = RAM_INIT_B1;
+    defparam cpu_subsystem.RAM_INIT_B2 = RAM_INIT_B2;
+    defparam cpu_subsystem.RAM_INIT_B3 = RAM_INIT_B3;
 
     // Selected MiSTer audio interpretation:
     // signed 16-bit stereo samples, with no framework mono mixing.

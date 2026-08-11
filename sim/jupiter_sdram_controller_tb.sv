@@ -13,7 +13,7 @@ module jupiter_sdram_controller_tb;
     localparam [2:0] CMD_AUTO_REFRESH = 3'b001;
     localparam [2:0] CMD_LOAD_MODE    = 3'b000;
 
-    localparam [12:0] MODE_REGISTER = 13'h030;
+    localparam [12:0] MODE_REGISTER = 13'h233;
 
     reg clk;
     reg reset;
@@ -251,7 +251,7 @@ module jupiter_sdram_controller_tb;
 
         check(
             SDRAM_A == MODE_REGISTER,
-            "chip 0 mode register selects BL1 and CAS latency 3"
+            "chip 0 mode register selects BL8, CAS latency 3, and single-location writes"
         );
 
         check(
@@ -322,7 +322,7 @@ module jupiter_sdram_controller_tb;
 
         check(
             SDRAM_A == MODE_REGISTER,
-            "chip 1 mode register selects BL1 and CAS latency 3"
+            "chip 1 mode register selects BL8, CAS latency 3, and single-location writes"
         );
 
         check(

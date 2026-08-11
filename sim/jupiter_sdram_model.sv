@@ -27,26 +27,29 @@ module jupiter_sdram_model #(
     localparam [2:0] CMD_AUTO_REFRESH = 3'b001;
     localparam [2:0] CMD_LOAD_MODE    = 3'b000;
 
+    localparam [12:0] EXPECTED_MODE =
+        13'h233;
+
     wire [2:0] command = {
         SDRAM_nRAS,
         SDRAM_nCAS,
         SDRAM_nWE
     };
 
-    // One open-row slot for each MiSTer chip-selection/bank pair.
-    reg [12:0] open_row   [0:7];
-    reg        open_valid [0:7];
-
-    // Sparse simulation storage. This is deliberately not a 128 MiB
-    // simulation array. Only addresses actually written by a test need
-    // storage.
+    /*
+     * Preserve the legacy model's exact hierarchical storage
+     * interface. Existing regressions directly preload and inspect
+     * these arrays.
+     */
     reg [25:0] mem_tag   [0:SLOTS-1];
     reg [15:0] mem_data  [0:SLOTS-1];
     reg        mem_valid [0:SLOTS-1];
 
-    reg        read_pending;
-    integer    read_countdown;
-    reg [15:0] read_data;
+    /*
+     * One open row for each {selection,bank}.
+     */
+    reg [12:0] open_row   [0:7];
+    reg        open_valid [0:7];
 
     integer i;
     integer bank_index;
@@ -56,103 +59,255 @@ module jupiter_sdram_model #(
     reg [25:0] access_addr;
     reg [15:0] merged_data;
 
-    // The model drives DQ only for the cycle in which CAS latency has
-    // expired. The controller owns DQ during writes.
+    /*
+     * BL8 read-return state.
+     */
+    reg        read_pending;
+    integer    read_start_cycle;
+    integer    read_beat;
+    integer    cycle_count;
+
+    reg [25:0] read_base_addr;
+
+    reg [15:0] dq_drive;
+    reg        dq_drive_en;
+
+    reg [15:0] lookup_data;
+
     assign SDRAM_DQ =
-        (read_pending && (read_countdown == 1))
-            ? read_data
-            : 16'hzzzz;
+        dq_drive_en ?
+            dq_drive :
+            16'hzzzz;
+
+    /*
+     * Sparse-memory lookup.
+     *
+     * Unwritten storage remains zero, matching the old behavioral
+     * model.
+     */
+    task automatic lookup_halfword;
+        input  [25:0] address;
+        output [15:0] value;
+
+        integer k;
+
+        begin
+
+            value =
+                16'd0;
+
+            for (k = 0; k < SLOTS; k = k + 1)
+                if (
+                    mem_valid[k] &&
+                    mem_tag[k] == address
+                )
+                    value =
+                        mem_data[k];
+        end
+    endtask
+
+    /*
+     * Drive one beat on the falling edge so it is stable before
+     * the controller captures it at the following rising edge.
+     */
+    always @(negedge clk) begin
+
+        dq_drive_en =
+            1'b0;
+
+        dq_drive =
+            16'd0;
+
+        if (
+            !reset &&
+            read_pending &&
+            cycle_count >=
+                read_start_cycle + CAS_CYCLES - 1 &&
+            read_beat < 8
+        ) begin
+
+            lookup_halfword(
+                read_base_addr +
+                    read_beat,
+                lookup_data
+            );
+
+            dq_drive =
+                lookup_data;
+
+            dq_drive_en =
+                1'b1;
+        end
+    end
 
     always @(posedge clk) begin
-        if (reset) begin
-            protocol_error <= 1'b0;
 
-            read_pending   <= 1'b0;
-            read_countdown <= 0;
-            read_data      <= 16'd0;
+        if (reset) begin
+
+            protocol_error =
+                1'b0;
+
+            read_pending =
+                1'b0;
+
+            read_start_cycle =
+                0;
+
+            read_beat =
+                0;
+
+            read_base_addr =
+                26'd0;
+
+            cycle_count =
+                0;
+
+            dq_drive_en =
+                1'b0;
+
+            dq_drive =
+                16'd0;
 
             for (i = 0; i < 8; i = i + 1) begin
-                open_row[i]   <= 13'd0;
-                open_valid[i] <= 1'b0;
+
+                open_row[i] =
+                    13'd0;
+
+                open_valid[i] =
+                    1'b0;
             end
 
             for (i = 0; i < SLOTS; i = i + 1) begin
-                mem_tag[i]   <= 26'd0;
-                mem_data[i]  <= 16'd0;
-                mem_valid[i] <= 1'b0;
+
+                mem_tag[i] =
+                    26'd0;
+
+                mem_data[i] =
+                    16'd0;
+
+                mem_valid[i] =
+                    1'b0;
             end
+
         end else begin
-            // Advance any pending read toward its data-return cycle.
-            if (read_pending) begin
-                if (read_countdown > 1) begin
-                    read_countdown <= read_countdown - 1;
-                end else begin
-                    read_pending   <= 1'b0;
-                    read_countdown <= 0;
-                end
+
+            cycle_count =
+                cycle_count + 1;
+
+            /*
+             * Advance the physical BL8 data burst.
+             *
+             * The controller aligns every miss to an eight-halfword
+             * group, so simple sequential +0..+7 addressing exactly
+             * matches the command stream.
+             */
+            if (
+                read_pending &&
+                cycle_count >=
+                    read_start_cycle + CAS_CYCLES &&
+                read_beat < 7
+            ) begin
+
+                read_beat =
+                    read_beat + 1;
             end
 
-            // Maintenance commands do not alter stored test data.
             if (SDRAM_CKE) begin
-                case (command)
-                    CMD_ACTIVE: begin
-                        bank_index = {
-                            SDRAM_nCS,
-                            SDRAM_BA
-                        };
 
-                        open_row[bank_index]   <= SDRAM_A;
-                        open_valid[bank_index] <= 1'b1;
+                bank_index = {
+                    SDRAM_nCS,
+                    SDRAM_BA
+                };
+
+                case (command)
+
+                    CMD_ACTIVE: begin
+
+                        if (
+                            open_valid[bank_index]
+                        )
+                            protocol_error =
+                                1'b1;
+
+                        open_row[bank_index] =
+                            SDRAM_A;
+
+                        open_valid[bank_index] =
+                            1'b1;
                     end
 
                     CMD_WRITE: begin
-                        bank_index = {
-                            SDRAM_nCS,
-                            SDRAM_BA
-                        };
 
-                        if (!open_valid[bank_index]) begin
-                            protocol_error <= 1'b1;
+                        if (
+                            !open_valid[bank_index]
+                        ) begin
+
+                            protocol_error =
+                                1'b1;
+
                         end else begin
-                            // Reconstruct Jupiter's H[25:0]:
-                            //
-                            // H[25]    = chip selection
-                            // H[24:17] = column[9:2]
-                            // H[16:4]  = active row
-                            // H[3:2]   = bank
-                            // H[1:0]   = column[1:0]
+
+                            /*
+                             * Winning-controller H[25:0] mapping.
+                             */
                             access_addr = {
                                 SDRAM_nCS,
-                                SDRAM_A[9:2],
                                 open_row[bank_index],
                                 SDRAM_BA,
-                                SDRAM_A[1:0]
+                                SDRAM_A[9:0]
                             };
 
-                            slot_index = -1;
-                            free_index = -1;
+                            slot_index =
+                                -1;
 
-                            for (i = 0; i < SLOTS; i = i + 1) begin
-                                if (mem_valid[i] &&
-                                    mem_tag[i] == access_addr)
-                                    slot_index = i;
+                            free_index =
+                                -1;
 
-                                if (!mem_valid[i] &&
-                                    free_index < 0)
-                                    free_index = i;
+                            for (
+                                i = 0;
+                                i < SLOTS;
+                                i = i + 1
+                            ) begin
+
+                                if (
+                                    mem_valid[i] &&
+                                    mem_tag[i] ==
+                                        access_addr
+                                )
+                                    slot_index =
+                                        i;
+
+                                if (
+                                    !mem_valid[i] &&
+                                    free_index < 0
+                                )
+                                    free_index =
+                                        i;
                             end
 
                             if (slot_index < 0)
-                                slot_index = free_index;
+                                slot_index =
+                                    free_index;
 
                             if (slot_index < 0) begin
-                                protocol_error <= 1'b1;
+
+                                protocol_error =
+                                    1'b1;
+
                             end else begin
-                                if (mem_valid[slot_index])
+
+                                if (
+                                    mem_valid[
+                                        slot_index
+                                    ]
+                                )
                                     merged_data =
-                                        mem_data[slot_index];
+                                        mem_data[
+                                            slot_index
+                                        ];
                                 else
-                                    merged_data = 16'd0;
+                                    merged_data =
+                                        16'd0;
 
                                 if (!SDRAM_DQML)
                                     merged_data[7:0] =
@@ -162,101 +317,193 @@ module jupiter_sdram_model #(
                                     merged_data[15:8] =
                                         SDRAM_DQ[15:8];
 
-                                mem_tag[slot_index] <=
+                                mem_tag[slot_index] =
                                     access_addr;
 
-                                mem_data[slot_index] <=
+                                mem_data[slot_index] =
                                     merged_data;
 
-                                mem_valid[slot_index] <=
+                                mem_valid[slot_index] =
                                     1'b1;
                             end
 
-                            // Jupiter currently requests auto-precharge
-                            // on each individual READ/WRITE command.
+                            /*
+                             * Candidate writes are single-location
+                             * writes with A10 auto-precharge.
+                             */
                             if (SDRAM_A[10])
-                                open_valid[bank_index] <= 1'b0;
+                                open_valid[
+                                    bank_index
+                                ] =
+                                    1'b0;
                         end
                     end
 
                     CMD_READ: begin
-                        bank_index = {
-                            SDRAM_nCS,
-                            SDRAM_BA
-                        };
 
-                        if (!open_valid[bank_index]) begin
-                            protocol_error <= 1'b1;
-                        end else if (read_pending) begin
-                            protocol_error <= 1'b1;
+                        if (
+                            !open_valid[bank_index]
+                        ) begin
+
+                            protocol_error =
+                                1'b1;
+
+                        end else if (
+                            read_pending
+                        ) begin
+
+                            protocol_error =
+                                1'b1;
+
                         end else begin
-                            access_addr = {
+
+                            read_base_addr = {
                                 SDRAM_nCS,
-                                SDRAM_A[9:2],
                                 open_row[bank_index],
                                 SDRAM_BA,
-                                SDRAM_A[1:0]
+                                SDRAM_A[9:0]
                             };
 
-                            slot_index = -1;
+                            /*
+                             * The controller must issue aligned BL8
+                             * reads. Catch any regression immediately.
+                             */
+                            if (
+                                read_base_addr[2:0] !=
+                                3'b000
+                            )
+                                protocol_error =
+                                    1'b1;
 
-                            for (i = 0; i < SLOTS; i = i + 1) begin
-                                if (mem_valid[i] &&
-                                    mem_tag[i] == access_addr)
-                                    slot_index = i;
-                            end
+                            if (!SDRAM_A[10])
+                                protocol_error =
+                                    1'b1;
 
-                            if (slot_index >= 0)
-                                read_data <=
-                                    mem_data[slot_index];
-                            else
-                                read_data <= 16'd0;
+                            read_pending =
+                                1'b1;
 
-                            read_pending   <= 1'b1;
-                            read_countdown <= CAS_CYCLES;
+                            read_start_cycle =
+                                cycle_count;
 
-                            if (SDRAM_A[10])
-                                open_valid[bank_index] <= 1'b0;
+                            read_beat =
+                                0;
+
+                            /*
+                             * READ auto-precharge closes after the BL8
+                             * burst. No overlapping access is legal
+                             * while read_pending remains asserted.
+                             */
                         end
                     end
 
                     CMD_PRECHARGE: begin
+
                         if (SDRAM_A[10]) begin
-                            // PRECHARGE ALL applies to all banks of the
-                            // currently selected MiSTer SDRAM device.
-                            open_valid[
-                                {SDRAM_nCS, 2'b00}
-                            ] <= 1'b0;
 
                             open_valid[
-                                {SDRAM_nCS, 2'b01}
-                            ] <= 1'b0;
+                                {SDRAM_nCS,2'b00}
+                            ] = 1'b0;
 
                             open_valid[
-                                {SDRAM_nCS, 2'b10}
-                            ] <= 1'b0;
+                                {SDRAM_nCS,2'b01}
+                            ] = 1'b0;
 
                             open_valid[
-                                {SDRAM_nCS, 2'b11}
-                            ] <= 1'b0;
+                                {SDRAM_nCS,2'b10}
+                            ] = 1'b0;
+
+                            open_valid[
+                                {SDRAM_nCS,2'b11}
+                            ] = 1'b0;
+
                         end else begin
+
                             open_valid[
-                                {SDRAM_nCS, SDRAM_BA}
-                            ] <= 1'b0;
+                                bank_index
+                            ] =
+                                1'b0;
                         end
                     end
 
-                    CMD_AUTO_REFRESH,
-                    CMD_LOAD_MODE,
+                    CMD_AUTO_REFRESH: begin
+
+                        /*
+                         * No bank of the selected SDRAM level may
+                         * remain active at refresh.
+                         */
+                        if (
+                            open_valid[
+                                {SDRAM_nCS,2'b00}
+                            ] ||
+                            open_valid[
+                                {SDRAM_nCS,2'b01}
+                            ] ||
+                            open_valid[
+                                {SDRAM_nCS,2'b10}
+                            ] ||
+                            open_valid[
+                                {SDRAM_nCS,2'b11}
+                            ]
+                        )
+                            protocol_error =
+                                1'b1;
+                    end
+
+                    CMD_LOAD_MODE: begin
+
+                        if (
+                            SDRAM_A !=
+                            EXPECTED_MODE
+                        )
+                            protocol_error =
+                                1'b1;
+
+                        if (
+                            SDRAM_BA !=
+                            2'b00
+                        )
+                            protocol_error =
+                                1'b1;
+                    end
+
                     CMD_NOP: begin
-                        // No storage action is required for these
-                        // commands in the functional simulation model.
                     end
 
                     default: begin
-                        protocol_error <= 1'b1;
+
+                        protocol_error =
+                            1'b1;
                     end
                 endcase
+            end
+
+            /*
+             * Complete READ auto-precharge only once all eight
+             * beats have actually been presented.
+             */
+            if (
+                read_pending &&
+                read_beat == 7 &&
+                cycle_count >=
+                    read_start_cycle +
+                    CAS_CYCLES + 7
+            ) begin
+
+                open_valid[
+                    {
+                        read_base_addr[25],
+                        read_base_addr[11:10]
+                    }
+                ] =
+                    1'b0;
+
+                /*
+                 * The BL8 transfer and its modeled auto-precharge
+                 * complete together.  Do not clear read_pending
+                 * before this block or the bank never closes.
+                 */
+                read_pending =
+                    1'b0;
             end
         end
     end

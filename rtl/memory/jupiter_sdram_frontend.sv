@@ -62,54 +62,124 @@ module jupiter_sdram_frontend (
         (m_addr[1:0] == 2'b00) &&
         (local_addr <= (capacity_bytes - 32'd4));
 
+    /*
+     * Halfword request generation.
+     *
+     * This block is intentionally independent of the controller
+     * response path.
+     */
     always @(*) begin
-        m_rdata    = 32'd0;
-        m_ready    = 1'b0;
 
-        half_valid = 1'b0;
-        half_write = 1'b0;
-        half_addr  = 26'd0;
-        half_wdata = 16'd0;
-        half_wstrb = 2'b00;
+        half_valid =
+            1'b0;
+
+        half_write =
+            1'b0;
+
+        half_addr =
+            26'd0;
+
+        half_wdata =
+            16'd0;
+
+        half_wstrb =
+            2'b00;
 
         case (state)
-            STATE_IDLE: begin
-                // Invalid, unavailable, misaligned, or out-of-range
-                // transactions complete deterministically without reaching
-                // the physical SDRAM controller.
-                if (m_valid && !request_available) begin
-                    m_ready = 1'b1;
-                    m_rdata = 32'd0;
-                end
-            end
 
             STATE_LOW: begin
-                half_valid = 1'b1;
-                half_write = saved_write;
-                half_addr  = saved_half_addr;
-                half_wdata = saved_wdata[15:0];
-                half_wstrb = saved_write ? saved_wstrb[1:0] : 2'b00;
+
+                half_valid =
+                    1'b1;
+
+                half_write =
+                    saved_write;
+
+                half_addr =
+                    saved_half_addr;
+
+                half_wdata =
+                    saved_wdata[15:0];
+
+                half_wstrb =
+                    saved_write ?
+                    saved_wstrb[1:0] :
+                    2'b00;
             end
 
             STATE_HIGH: begin
-                half_valid = 1'b1;
-                half_write = saved_write;
-                half_addr  = saved_half_addr + 26'd1;
-                half_wdata = saved_wdata[31:16];
-                half_wstrb = saved_write ? saved_wstrb[3:2] : 2'b00;
+
+                half_valid =
+                    1'b1;
+
+                half_write =
+                    saved_write;
+
+                half_addr =
+                    saved_half_addr +
+                    26'd1;
+
+                half_wdata =
+                    saved_wdata[31:16];
+
+                half_wstrb =
+                    saved_write ?
+                    saved_wstrb[3:2] :
+                    2'b00;
+            end
+
+            default: begin
+            end
+        endcase
+    end
+
+    /*
+     * Master response generation.
+     *
+     * Controller response signals are consumed here, but this
+     * block does not drive the halfword request interface.
+     */
+    always @(*) begin
+
+        m_rdata =
+            32'd0;
+
+        m_ready =
+            1'b0;
+
+        case (state)
+
+            STATE_IDLE: begin
+
+                if (
+                    m_valid &&
+                    !request_available
+                ) begin
+
+                    m_ready =
+                        1'b1;
+
+                    m_rdata =
+                        32'd0;
+                end
+            end
+
+            STATE_HIGH: begin
 
                 if (half_ready) begin
-                    m_ready = 1'b1;
+
+                    m_ready =
+                        1'b1;
 
                     if (!saved_write)
-                        m_rdata = {half_rdata, saved_read_low};
+                        m_rdata = {
+                            half_rdata,
+                            saved_read_low
+                        };
                 end
             end
 
             default: begin
-                m_rdata    = 32'd0;
-                m_ready    = 1'b0;
-                half_valid = 1'b0;
             end
         endcase
     end

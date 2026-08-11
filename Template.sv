@@ -220,6 +220,11 @@ jupiter_system jupiter_system_inst
 	.SDRAM_nWE(SDRAM_nWE)
 );
 
+    defparam jupiter_system_inst.RAM_INIT_B0 = "rtl/memory/jupiter_boot_b0.hex";
+    defparam jupiter_system_inst.RAM_INIT_B1 = "rtl/memory/jupiter_boot_b1.hex";
+    defparam jupiter_system_inst.RAM_INIT_B2 = "rtl/memory/jupiter_boot_b2.hex";
+    defparam jupiter_system_inst.RAM_INIT_B3 = "rtl/memory/jupiter_boot_b3.hex";
+
 assign CLK_VIDEO = clk_sys;
 assign CE_PIXEL = ce_pix;
 

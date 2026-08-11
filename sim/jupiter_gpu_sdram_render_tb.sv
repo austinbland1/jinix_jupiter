@@ -656,19 +656,34 @@ module jupiter_gpu_sdram_render_tb;
             "GPU completes exactly 260 logical SDRAM transactions"
         );
 
+        $display(
+            "BL8_ASSERT jupiter_gpu_sdram_render_tb physical_read_count=%0d EXPECTED=36",
+            physical_read_count
+        );
+
         check(
-            physical_read_count == 264,
-            "132 logical GPU reads produce 264 physical 16-bit READs"
+            physical_read_count == 36,
+            "BL8 physical physical_read_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_gpu_sdram_render_tb physical_write_count=%0d EXPECTED=256",
+            physical_write_count
         );
 
         check(
             physical_write_count == 256,
-            "128 logical GPU writes produce 256 physical 16-bit WRITEs"
+            "BL8 physical physical_write_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_gpu_sdram_render_tb physical_active_count=%0d EXPECTED=292",
+            physical_active_count
         );
 
         check(
-            physical_active_count == 520,
-            "260 logical GPU transactions produce 520 ACTIVE commands"
+            physical_active_count == 292,
+            "BL8 physical physical_active_count matches calibrated expectation"
         );
 
         check(

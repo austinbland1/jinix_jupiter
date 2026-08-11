@@ -1470,22 +1470,39 @@ module jupiter_cpu_dma_contention_tb;
         //   128 logical writes
         //   256 logical accesses
         //
-        // Each logical access becomes two 16-bit physical accesses.
+        // Writes remain two 16-bit physical accesses per logical
+        // 32-bit write. Reads may hit the BL8 cache, so physical READ
+        // traffic is no longer two commands per logical read.
         // --------------------------------------------------------
 
+        $display(
+            "BL8_ASSERT jupiter_cpu_dma_contention_tb physical_read_count=%0d EXPECTED=128",
+            physical_read_count
+        );
+
         check(
-            physical_read_count == 256,
-            "128 logical reads produce 256 physical 16-bit READs"
+            physical_read_count == 128,
+            "BL8 physical physical_read_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_cpu_dma_contention_tb physical_write_count=%0d EXPECTED=256",
+            physical_write_count
         );
 
         check(
             physical_write_count == 256,
-            "128 logical writes produce 256 physical 16-bit WRITEs"
+            "BL8 physical physical_write_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_cpu_dma_contention_tb physical_active_count=%0d EXPECTED=384",
+            physical_active_count
         );
 
         check(
-            physical_active_count == 512,
-            "256 logical accesses produce 512 ACTIVE commands"
+            physical_active_count == 384,
+            "BL8 physical physical_active_count matches calibrated expectation"
         );
 
         check(

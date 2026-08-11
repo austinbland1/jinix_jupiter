@@ -187,9 +187,9 @@ module jupiter_cpu_sdram_tb;
     // Observe actual physical SDRAM data commands.
     //
     // One logical 32-bit Jupiter access becomes two 16-bit SDRAM
-    // accesses, so the CPU store should produce two physical WRITE
-    // commands and the CPU load should produce two physical READ
-    // commands.
+    // accesses. The CPU store still produces two single-location
+    // physical WRITEs, while the CPU load is satisfied by one aligned
+    // physical BL8 READ that fills the controller's eight-halfword cache.
     // ------------------------------------------------------------
 
     always @(posedge clk) begin
@@ -365,19 +365,34 @@ module jupiter_cpu_sdram_tb;
             "CPU external-memory accesses select only SDRAM target"
         );
 
+        $display(
+            "BL8_ASSERT jupiter_cpu_sdram_tb physical_write_count=%0d EXPECTED=2",
+            physical_write_count
+        );
+
         check(
             physical_write_count == 2,
-            "32-bit CPU store produces two physical 16-bit WRITEs"
+            "BL8 physical physical_write_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_cpu_sdram_tb physical_read_count=%0d EXPECTED=1",
+            physical_read_count
         );
 
         check(
-            physical_read_count == 2,
-            "32-bit CPU load produces two physical 16-bit READs"
+            physical_read_count == 1,
+            "BL8 physical physical_read_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_cpu_sdram_tb physical_active_count=%0d EXPECTED=3",
+            physical_active_count
         );
 
         check(
-            physical_active_count == 4,
-            "store and load together produce four ACTIVE commands"
+            physical_active_count == 3,
+            "BL8 physical physical_active_count matches calibrated expectation"
         );
 
         check(

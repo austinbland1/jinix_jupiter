@@ -463,19 +463,34 @@ module jupiter_shared_sdram_tb;
             "shared path returns to idle after CPU and GPU traffic"
         );
 
+        $display(
+            "BL8_ASSERT jupiter_shared_sdram_tb physical_write_count=%0d EXPECTED=4",
+            physical_write_count
+        );
+
         check(
             physical_write_count == 4,
-            "CPU and GPU 32-bit writes produce four physical 16-bit WRITEs"
+            "BL8 physical physical_write_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_shared_sdram_tb physical_read_count=%0d EXPECTED=1",
+            physical_read_count
         );
 
         check(
-            physical_read_count == 4,
-            "CPU and GPU 32-bit reads produce four physical 16-bit READs"
+            physical_read_count == 1,
+            "BL8 physical physical_read_count matches calibrated expectation"
+        );
+
+        $display(
+            "BL8_ASSERT jupiter_shared_sdram_tb physical_active_count=%0d EXPECTED=5",
+            physical_active_count
         );
 
         check(
-            physical_active_count == 8,
-            "four logical 32-bit accesses produce eight ACTIVE commands"
+            physical_active_count == 5,
+            "BL8 physical physical_active_count matches calibrated expectation"
         );
 
         check(
