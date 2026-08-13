@@ -968,8 +968,8 @@ wire burst_low_response =
                 ST_ACCESS_READ_WAIT: begin
 
                     if (
-                        wait_count >=
-                        CAS_CYCLES - 1
+                        wait_count ==
+                        16'd1
                     ) begin
 
                         /*

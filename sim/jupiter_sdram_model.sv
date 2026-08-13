@@ -122,7 +122,7 @@ module jupiter_sdram_model #(
             !reset &&
             read_pending &&
             cycle_count >=
-                read_start_cycle + CAS_CYCLES - 1 &&
+                read_start_cycle + CAS_CYCLES - 2 &&
             read_beat < 8
         ) begin
 
@@ -204,7 +204,7 @@ module jupiter_sdram_model #(
             if (
                 read_pending &&
                 cycle_count >=
-                    read_start_cycle + CAS_CYCLES &&
+                    read_start_cycle + CAS_CYCLES - 1 &&
                 read_beat < 7
             ) begin
 
@@ -485,8 +485,7 @@ module jupiter_sdram_model #(
                 read_pending &&
                 read_beat == 7 &&
                 cycle_count >=
-                    read_start_cycle +
-                    CAS_CYCLES + 7
+                    read_start_cycle + CAS_CYCLES + 6
             ) begin
 
                 open_valid[
