@@ -118,15 +118,15 @@ for criterion in criteria:
 # ============================================================
 
 check(
-    "Milestone 11 is acceptance-complete"
+    '> **Release status:** `v0.1-alpha` — First Public Developer Preview'
     in readme,
-    "README records Milestone 11 acceptance completion",
+    'README records current public developer-preview release status',
 )
 
 check(
-    "Quartus synthesis/timing and physical hardware validation remain"
+    'Synthesis, timing closure, resource usage, and physical-hardware operation are not claimed unless they are actually measured or tested.'
     in readme,
-    "README keeps unavailable/unperformed validation explicit",
+    'README keeps synthesis and physical-hardware claims evidence-gated',
 )
 
 for phrase in [
@@ -167,9 +167,9 @@ check(
 )
 
 check(
-    "Hardware validation status: NOT PERFORMED."
+    'Hardware validation status: PARTIAL — selected 2D, audio, controller, and bring-up paths have physical evidence; fixed-function 3D physical output remains unresolved.'
     in hardware_validation,
-    "hardware validation remains explicitly unperformed",
+    'hardware validation records partial physical-validation status',
 )
 
 check(

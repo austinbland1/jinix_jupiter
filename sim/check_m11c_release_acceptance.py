@@ -164,7 +164,7 @@ for phrase in [
 # ============================================================
 
 for phrase in [
-    "M11B integrates production framebuffer scanout",
+    "Milestone 11B replaces the inherited demo-video producer with Jupiter's production framebuffer scanout.",
     "RGB888 channels and timing directly to the MiSTer-facing video outputs",
 ]:
     check(
@@ -247,9 +247,9 @@ for stale in [
     )
 
 check(
-    "Hardware validation status: NOT PERFORMED."
+    "Hardware validation status: PARTIAL — selected 2D, audio, controller, and bring-up paths have physical evidence; fixed-function 3D physical output remains unresolved."
     in hardware_validation,
-    "hardware validation remains explicitly unperformed",
+    "hardware validation records partial physical-validation status",
 )
 
 check(

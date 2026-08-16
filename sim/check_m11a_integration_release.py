@@ -388,10 +388,10 @@ for phrase in [
 
 check(
     (
-        "Hardware validation status: NOT PERFORMED"
+        "Hardware validation status: PARTIAL — selected 2D, audio, controller, and bring-up paths have physical evidence; fixed-function 3D physical output remains unresolved."
         in hardware_validation
     ),
-    "hardware procedure records unperformed status",
+    "hardware procedure records partial physical-validation status",
 )
 
 check(

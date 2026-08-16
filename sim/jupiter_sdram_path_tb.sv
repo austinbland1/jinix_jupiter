@@ -325,12 +325,12 @@ module jupiter_sdram_path_tb;
                     );
 
                     check(
-                        SDRAM_A == expected_h[16:4],
+                        SDRAM_A == expected_h[24:12],
                         "ACTIVE carries expected row address"
                     );
 
                     check(
-                        SDRAM_BA == expected_h[3:2],
+                        SDRAM_BA == expected_h[11:10],
                         "ACTIVE carries expected bank address"
                     );
                 end
@@ -358,13 +358,13 @@ module jupiter_sdram_path_tb;
                     );
 
                     check(
-                        SDRAM_BA == expected_h[3:2],
+                        SDRAM_BA == expected_h[11:10],
                         "WRITE preserves expected bank address"
                     );
 
                     check(
                         SDRAM_A[9:0] ==
-                            {expected_h[24:17], expected_h[1:0]},
+                            expected_h[9:0],
                         "WRITE carries expected column address"
                     );
 
@@ -609,6 +609,8 @@ module jupiter_sdram_path_tb;
             begin
                 // First controller acknowledgment is the low half.
                 wait (
+                    (m_valid === 1'b1) &&
+                    (half_valid === 1'b1) &&
                     (half_ready === 1'b1) &&
                     (m_ready === 1'b0)
                 );
