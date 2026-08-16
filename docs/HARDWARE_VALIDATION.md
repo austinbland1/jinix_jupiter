@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Hardware validation status: NOT PERFORMED.
+Hardware validation status: PARTIAL — selected 2D, audio, controller, and bring-up paths have physical evidence; fixed-function 3D physical output remains unresolved.
 
 M11A does not claim successful operation on SuperStation One or other
 MiSTer-compatible hardware.
@@ -85,3 +85,18 @@ actually executed on physical target hardware.
 
 Partial hardware testing must clearly identify which categories were and were
 not performed.
+
+## v0.1-alpha Public Release Boundary — 2026-08-15
+
+The `v0.1-alpha` developer preview intentionally makes a **partial physical-validation claim**, not an all-categories/stable-console claim.
+
+For release purposes:
+
+- the verified physical 2D baseline is `hv8-2d-graphics-verified` at `1aa919e2424bc8fd0cd94d2278cacf2be5493826`;
+- the verified physical 2D reference RBF SHA-256 is `84ecf987d86b47c285383947a7e3a1bcb9256fefce369290c2a0756da751e9a8`;
+- physical PCM-audio validation has demonstrated silence, left/right/stereo playback, and simultaneous two-voice playback/mixing without obvious persistent corruption during the recorded test;
+- the selected digital controller path has physically demonstrated D-pad input, sustained input, and rapid transitions, while complete face-button mapping/analog/remapping remain limited or unproven;
+- fixed-function 3D is **not physically supported** because the current hardware bring-up has a reproducible implementation-sensitive HDMI/video-link failure;
+- long-duration mixed-workload soak qualification remains future work.
+
+Accordingly, this document must not be read as claiming full Hardware Validation PASS or `1.0`-class reliability for `v0.1-alpha`.

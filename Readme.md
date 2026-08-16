@@ -4,11 +4,23 @@ Jinix Jupiter is a new fantasy-console FPGA platform being developed for MiSTer-
 
 Jupiter is **not an emulator of an existing console**. It is being designed as its own machine with a custom CPU, memory architecture, graphics hardware, DMA engine, audio subsystem, firmware, and development tools.
 
-> **Current branch:** `milestone-10`
-> **Current checkpoint:** Milestone 11 is acceptance-complete in the repository's automated and documented release-validation scope. M11B integrates production framebuffer scanout, and all required simulation regressions pass. Quartus synthesis/timing and physical hardware validation remain explicitly unavailable or not performed rather than being claimed as successful.
-> **Verified predecessor:** `m9-verified` = `c989b080071be8336211f21dda52cdb91d266ee7`
+> **Release status:** `v0.1-alpha` — First Public Developer Preview
+> **Release-prep base:** `hardware-bringup` @ `1aa919e2424bc8fd0cd94d2278cacf2be5493826`
+> **Verified physical 2D baseline:** `hv8-2d-graphics-verified`
+> **Fixed-function 3D:** experimental; implemented and simulation-validated, but not physically supported for gameplay in this release because hardware bring-up still has an unresolved implementation-sensitive video-link failure.
 ---
 
+## v0.1-alpha Support Boundary
+
+This release is a **developer preview**, not a consumer-stable `1.0`.
+
+For physical homebrew, the supported path is the verified **2D framebuffer / 2D graphics path** together with the current CPU, SDRAM, DMA, PCM-audio, and digital-controller interfaces. Low-level development is supported through the repository's Jupiter assembler, minimal BIOS/system-image workflow, and host-side image tooling.
+
+Fixed-function 3D is **not physically supported in v0.1-alpha**. The 3D engine remains available for simulation and continued hardware bring-up, but current physical tests expose an unresolved FPGA implementation-sensitive HDMI/video-link failure. See `docs/KNOWN_3D_ISSUE.md`.
+
+Known controller mapping limitations, SDK/tooling limitations, and reliability qualification status are listed in `KNOWN_LIMITATIONS.md`.
+
+---
 ## Project Status
 
 | Milestone | Area | Status |
