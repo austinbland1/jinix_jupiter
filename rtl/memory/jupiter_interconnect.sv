@@ -68,6 +68,16 @@ module jupiter_interconnect
     input  wire [31:0] controller_rdata,
     input  wire        controller_ready,
 
+    // Milestone 12 cartridge-loader MMIO target.
+    output wire        loader_valid,
+    output wire        loader_write,
+    output wire [31:0] loader_addr,
+    output wire [31:0] loader_wdata,
+    output wire  [3:0] loader_wstrb,
+
+    input  wire [31:0] loader_rdata,
+    input  wire        loader_ready,
+
     // Milestone 4 external SDRAM target.
 output wire        sdram_valid,
     output wire        sdram_write,
@@ -94,6 +104,9 @@ output wire        sdram_valid,
 
     localparam [31:0] CONTROLLER_START = 32'h00001400;
     localparam [31:0] CONTROLLER_END   = 32'h000014FF;
+
+    localparam [31:0] LOADER_START = 32'h00001500;
+    localparam [31:0] LOADER_END   = 32'h000015FF;
 
     localparam [31:0] SDRAM_START = 32'h10000000;
 localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
@@ -132,6 +145,11 @@ localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
         m_valid &&
         aligned &&
         (m_addr[31:8] == 24'h000014);
+
+    wire loader_selected =
+        m_valid &&
+        aligned &&
+        (m_addr[31:8] == 24'h000015);
 
     wire sdram_selected =
         m_valid &&
@@ -173,6 +191,12 @@ localparam [31:0] SDRAM_END   = 32'h17FFFFFF;
     assign controller_wdata = m_wdata;
     assign controller_wstrb = m_wstrb;
 
+    assign loader_valid = loader_selected;
+    assign loader_write = m_write;
+    assign loader_addr  = m_addr;
+    assign loader_wdata = m_wdata;
+    assign loader_wstrb = m_wstrb;
+
     assign sdram_valid = sdram_selected;
 assign sdram_write = m_write;
     assign sdram_addr  = m_addr;
@@ -191,6 +215,7 @@ assign sdram_write = m_write;
         dma_selected        ? dma_ready :
         audio_selected      ? audio_ready :
         controller_selected ? controller_ready :
+        loader_selected     ? loader_ready :
         sdram_selected      ? sdram_ready :
 1'b1;
 
@@ -201,6 +226,7 @@ assign sdram_write = m_write;
         dma_selected        ? dma_rdata :
         audio_selected      ? audio_rdata :
         controller_selected ? controller_rdata :
+        loader_selected     ? loader_rdata :
         sdram_selected      ? sdram_rdata :
 32'h00000000;
 

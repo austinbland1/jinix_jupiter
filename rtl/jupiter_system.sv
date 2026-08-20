@@ -32,6 +32,14 @@ module jupiter_system
     // MiSTer-reported external SDRAM configuration.
     input  wire [15:0] sdram_sz,
 
+    // M12 MiSTer cartridge download stream.
+    input  wire        ioctl_download,
+    input  wire [15:0] ioctl_index,
+    input  wire        ioctl_wr,
+    input  wire [26:0] ioctl_addr,
+    input  wire  [7:0] ioctl_dout,
+    output wire        ioctl_wait,
+
     // M8B-2 production digital controller boundary.
     input  wire [31:0] controller_0_state,
     input  wire [31:0] controller_1_state,
@@ -94,6 +102,14 @@ module jupiter_system
 
 
         .sdram_sz   (sdram_sz),
+
+        // M12 cartridge download propagation.
+        .ioctl_download (ioctl_download),
+        .ioctl_index    (ioctl_index),
+        .ioctl_wr       (ioctl_wr),
+        .ioctl_addr     (ioctl_addr),
+        .ioctl_dout     (ioctl_dout),
+        .ioctl_wait     (ioctl_wait),
 
         // M8B-2 production controller propagation.
         .controller_0_state (controller_0_state),

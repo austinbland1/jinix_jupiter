@@ -357,7 +357,7 @@ sdram_ready = 1'b0;
         // this legacy decode check is independent of preceding target tests.
         m_valid       = 1'b1;
         m_write       = 1'b0;
-        m_addr        = 32'h00001500;
+        m_addr        = 32'h00001600;
         m_wdata       = 32'h00000000;
         m_wstrb       = 4'b0000;
 
@@ -388,13 +388,13 @@ sdram_ready = 1'b0;
             !dma_valid &&
             !audio_valid &&
             !sdram_valid,
-            "address after controller aperture selects no target"
+            "address after loader aperture selects no target"
         );
 
         check(
             m_ready &&
             m_rdata == 32'h00000000,
-            "address after controller aperture uses unmapped response"
+            "address after loader aperture uses unmapped response"
         );
 
         // Misaligned access must not reach any target.

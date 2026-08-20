@@ -125,8 +125,8 @@ M12 splits this into two domains inside `jupiter_cpu_subsystem`:
 
 | Domain | Drives | Held during a matching download? |
 | --- | --- | --- |
-| `reset` (unchanged) | `jupiter_loader`, `jupiter_sdram_arbiter`, `jupiter_sdram_scanout_arbiter`, the new loader arbiter, `jupiter_sdram_frontend`, `jupiter_sdram_controller`, `jupiter_internal_ram` | No — the memory path must stay operational to receive the image |
-| `core_reset = reset \|\| loader_active` (new) | `jupiter_cpu`, `jupiter_gpu_2d`, `jupiter_dma`, `jupiter_audio`, `jupiter_video_scanout` | Yes |
+| `reset` (unchanged) | `jupiter_loader`, the new `jupiter_sdram_loader_arbiter`, `jupiter_sdram_frontend`, `jupiter_sdram_controller`, `jupiter_internal_ram` | No — the loader's downstream memory path must stay operational to receive the image |
+| `core_reset = reset \|\| loader_active` (new) | `jupiter_cpu`, `jupiter_gpu_2d`, `jupiter_dma`, `jupiter_audio`, `jupiter_video_scanout`, `jupiter_sdram_arbiter`, `jupiter_sdram_scanout_arbiter` | Yes |
 
 `loader_active` is asserted for the full duration of a matching
 `ioctl_download`. Because `jupiter_cpu`'s `mem_valid` is already gated by
@@ -134,6 +134,20 @@ M12 splits this into two domains inside `jupiter_cpu_subsystem`:
 sufficient to guarantee the CPU issues zero SDRAM requests during a load;
 GPU and DMA follow the same existing gating pattern on their own SDRAM
 master interfaces.
+
+**M12C exact-source boundary correction.** The M12C1 preflight found that
+both existing game-path arbiters retain a non-preemptive `grant_state` until
+the selected upstream requester is still `valid` when downstream `ready`
+returns. Resetting only the requester can therefore strand a stale grant if
+a download begins during an outstanding SDRAM transaction. M12C drives the
+*existing reset ports* of `jupiter_sdram_arbiter` and
+`jupiter_sdram_scanout_arbiter` with `core_reset` as well; their source files
+and internal grant logic remain byte-for-byte unchanged. The new downstream
+`jupiter_sdram_loader_arbiter` latches any game transaction already presented
+before `core_reset`, drains that transaction non-preemptively, and only then
+grants the loader. This preserves a live loader-to-frontend path while
+guaranteeing the pre-existing game arbiters restart from `GRANT_NONE` after
+the download.
 
 Screen blanking and audio silence during a cartridge load are the
 expected, normal result of this — the same behavior MiSTer users already
@@ -429,9 +443,11 @@ Following the pattern established by `docs/DMA_ARCHITECTURE.md` §10 and
 6. `core_reset` assertion for the full duration of a matching download and
    clean release on completion;
 7. CPU/GPU/DMA/video-scanout quiescence — no SDRAM requests from any of
-   them while `core_reset` is asserted;
-8. `jupiter_sdram_loader_arbiter` priority behavior, and clean resumption
-   of the game path after a load completes;
+   them while `core_reset` is asserted, and both existing game-path arbiters
+   return to `GRANT_NONE`;
+8. `jupiter_sdram_loader_arbiter` priority behavior, including draining a
+   game transaction already in flight when `core_reset` asserts, and clean
+   resumption of the game path after a load completes;
 9. `ioctl_wait` correctly reflects backpressure from the shared SDRAM
    path;
 10. CPU-visible `STATUS`/`LOAD_SIZE`/`LOAD_BASE` MMIO readback;

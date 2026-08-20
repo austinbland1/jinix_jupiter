@@ -10,6 +10,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_interconnect.s
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_internal_ram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_arbiter.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_scanout_arbiter.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_loader_arbiter.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_loader.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/video/jupiter_video_scanout.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_frontend.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/memory/jupiter_sdram_controller.sv

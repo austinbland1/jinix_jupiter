@@ -65,7 +65,7 @@ localparam CONF_STR = {
 	"P1-, -= Options in page 1 =-;",
 	"P1-;",
 	"P1O[5],Option 1-1,Off,On;",
-	"d0P1F1,BIN;",
+	"F1,JUP;",
 	"H0P1O[10],Option 1-2,Off,On;",
 	"-;",
 	"P2,Test Page 2;",
@@ -102,6 +102,14 @@ wire [31:0] joystick_5;
 // MiSTer-reported SDRAM configuration.
 wire [15:0] sdram_sz;
 
+// M12 cartridge download stream from the MiSTer HPS framework.
+wire        ioctl_download;
+wire [15:0] ioctl_index;
+wire        ioctl_wr;
+wire [26:0] ioctl_addr;
+wire  [7:0] ioctl_dout;
+wire        ioctl_wait;
+
 
 hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
@@ -123,6 +131,13 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 	.status(status),
 	.status_menumask({status[5]}),
 	
+	.ioctl_download(ioctl_download),
+	.ioctl_index(ioctl_index),
+	.ioctl_wr(ioctl_wr),
+	.ioctl_addr(ioctl_addr),
+	.ioctl_dout(ioctl_dout),
+	.ioctl_wait(ioctl_wait),
+
 	.sdram_sz(sdram_sz),
 
 	.ps2_key(ps2_key)
@@ -201,7 +216,14 @@ jupiter_system jupiter_system_inst
 	.AUDIO_S(AUDIO_S),
 	.AUDIO_MIX(AUDIO_MIX),
 
-	.sdram_sz(sdram_sz),
+        .ioctl_download(ioctl_download),
+        .ioctl_index(ioctl_index),
+        .ioctl_wr(ioctl_wr),
+        .ioctl_addr(ioctl_addr),
+        .ioctl_dout(ioctl_dout),
+        .ioctl_wait(ioctl_wait),
+
+        .sdram_sz(sdram_sz),
 
 	.controller_0_state(joystick_0),
 	.controller_1_state(joystick_1),

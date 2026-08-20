@@ -31,6 +31,8 @@ AUDIO_RTL = ../rtl/audio/jupiter_audio.sv
 CONTROLLER_RTL = ../rtl/peripherals/jupiter_controllers.sv
 SDRAM_ARBITER_RTL = ../rtl/memory/jupiter_sdram_arbiter.sv
 SDRAM_SCANOUT_ARBITER_RTL = ../rtl/memory/jupiter_sdram_scanout_arbiter.sv
+SDRAM_LOADER_ARBITER_RTL = ../rtl/memory/jupiter_sdram_loader_arbiter.sv
+LOADER_RTL = ../rtl/memory/jupiter_loader.sv
 VIDEO_SCANOUT_RTL = ../rtl/video/jupiter_video_scanout.sv
 SDRAM_FRONTEND_RTL = ../rtl/memory/jupiter_sdram_frontend.sv
 SDRAM_CONTROLLER_RTL = ../rtl/memory/jupiter_sdram_controller.sv
@@ -46,6 +48,8 @@ CPU_SUBSYSTEM_RTL = $(CPU_RTL) \
                      $(CONTROLLER_RTL) \
                     $(SDRAM_ARBITER_RTL) \
                     $(SDRAM_SCANOUT_ARBITER_RTL) \
+                    $(SDRAM_LOADER_ARBITER_RTL) \
+                    $(LOADER_RTL) \
                     $(VIDEO_SCANOUT_RTL) \
                     $(SDRAM_FRONTEND_RTL) \
                     $(SDRAM_CONTROLLER_RTL) \
@@ -613,3 +617,60 @@ test: m11d-test
 
 m11d-test: m11c-test
 	python3 -B check_m11d_closeout.py
+
+
+# ============================================================
+# Milestone 12C - cartridge loader / reset split / loader arbiter
+# ============================================================
+
+.PHONY: m12c-test \
+        loader-test \
+        sdram-loader-arbiter-test \
+        interconnect-loader-test \
+        loader-boundary-chain-test \
+        core-reset-test \
+        m12c-topology-test \
+        m12c-clean
+
+test: m12c-test
+
+m12c-test: \
+        loader-test \
+        sdram-loader-arbiter-test \
+        interconnect-loader-test \
+        loader-boundary-chain-test \
+        core-reset-test \
+        m12c-topology-test
+
+loader-test:
+	iverilog -g2012 -s jupiter_loader_tb -o jupiter_loader.vvp $(LOADER_RTL) jupiter_loader_tb.sv
+	vvp -n jupiter_loader.vvp
+
+sdram-loader-arbiter-test:
+	iverilog -g2012 -s jupiter_sdram_loader_arbiter_tb -o jupiter_sdram_loader_arbiter.vvp $(SDRAM_LOADER_ARBITER_RTL) jupiter_sdram_loader_arbiter_tb.sv
+	vvp -n jupiter_sdram_loader_arbiter.vvp
+
+interconnect-loader-test:
+	iverilog -g2012 -s jupiter_interconnect_loader_tb -o jupiter_interconnect_loader.vvp $(INTERCONNECT_RTL) jupiter_interconnect_loader_tb.sv
+	vvp -n jupiter_interconnect_loader.vvp
+
+loader-boundary-chain-test:
+	iverilog -g2012 -s jupiter_loader_boundary_chain_tb -o jupiter_loader_boundary_chain.vvp $(SDRAM_ARBITER_RTL) $(SDRAM_SCANOUT_ARBITER_RTL) $(SDRAM_LOADER_ARBITER_RTL) jupiter_loader_boundary_chain_tb.sv
+	vvp -n jupiter_loader_boundary_chain.vvp
+
+core-reset-test:
+	iverilog -g2012 -s jupiter_core_reset_tb -o jupiter_core_reset.vvp $(CPU_SUBSYSTEM_RTL) jupiter_core_reset_tb.sv
+	vvp -n jupiter_core_reset.vvp
+
+m12c-topology-test:
+	python3 -B check_m12c_topology.py
+
+clean: m12c-clean
+
+m12c-clean:
+	rm -f \
+		jupiter_loader.vvp \
+		jupiter_sdram_loader_arbiter.vvp \
+		jupiter_interconnect_loader.vvp \
+		jupiter_loader_boundary_chain.vvp \
+		jupiter_core_reset.vvp

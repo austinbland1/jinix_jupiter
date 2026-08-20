@@ -476,13 +476,13 @@ module jupiter_cpu_display_mmio_tb;
         #1;
 
         check(
-            dut.scanout_capacity_bytes ==
+            dut.sdram_capacity_bytes ==
                 32'h02000000,
             "32 MiB report decodes to exact frontend-compatible capacity"
         );
 
         check(
-            dut.scanout_sdram_max_addr ==
+            dut.sdram_max_addr ==
                 32'h11FFFFFF,
             "32 MiB report produces exact inclusive scanout final byte"
         );

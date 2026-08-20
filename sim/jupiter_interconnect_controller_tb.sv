@@ -270,7 +270,7 @@ module jupiter_interconnect_controller_tb;
         );
 
 
-        m_addr = 32'h00001500;
+        m_addr = 32'h00001600;
         audio_ready = 0;
 
         #1;
@@ -285,7 +285,7 @@ module jupiter_interconnect_controller_tb;
             !sdram_valid &&
             m_ready &&
             m_rdata == 0,
-            "address after controller aperture is unmapped"
+            "address after loader aperture is unmapped"
         );
 
 

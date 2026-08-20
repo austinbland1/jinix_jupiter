@@ -17,6 +17,14 @@ module jupiter_cpu_subsystem
     // MiSTer-reported installed external SDRAM size.
     input  wire [15:0] sdram_sz,
 
+    // M12 MiSTer cartridge download stream.
+    input  wire        ioctl_download,
+    input  wire [15:0] ioctl_index,
+    input  wire        ioctl_wr,
+    input  wire [26:0] ioctl_addr,
+    input  wire  [7:0] ioctl_dout,
+    output wire        ioctl_wait,
+
     // M8B-1 controller-state boundary.
     //
     // Production hps_io wiring is deferred to M8B-2.
@@ -147,6 +155,15 @@ module jupiter_cpu_subsystem
     wire [31:0] controller_rdata;
     wire        controller_ready;
 
+    // M12 cartridge-loader MMIO target interface.
+    wire        loader_mmio_valid;
+    wire        loader_mmio_write;
+    wire [31:0] loader_mmio_addr;
+    wire [31:0] loader_mmio_wdata;
+    wire  [3:0] loader_mmio_wstrb;
+    wire [31:0] loader_mmio_rdata;
+    wire        loader_mmio_ready;
+
     // CPU external-SDRAM target interface from the interconnect.
 wire        sdram_valid;
     wire        sdram_write;
@@ -192,7 +209,25 @@ wire        sdram_valid;
     wire [31:0] scanout_sdram_rdata;
     wire        scanout_sdram_ready;
 
-    // Output of the second-stage normal/scanout arbiter.
+    // Output of the second-stage normal/scanout arbiter. M12 calls this
+    // the aggregate game stream feeding the new third arbitration stage.
+    wire        game_sdram_valid;
+    wire        game_sdram_write;
+    wire [31:0] game_sdram_addr;
+    wire [31:0] game_sdram_wdata;
+    wire  [3:0] game_sdram_wstrb;
+    wire [31:0] game_sdram_rdata;
+    wire        game_sdram_ready;
+
+    // M12 cartridge loader write-only SDRAM master.
+    wire        loader_sdram_valid;
+    wire [31:0] loader_sdram_addr;
+    wire [31:0] loader_sdram_wdata;
+    wire  [3:0] loader_sdram_wstrb;
+    wire        loader_sdram_ready;
+
+    // Output of the third-stage game/loader arbiter toward the unchanged
+    // jupiter_sdram_frontend.
     wire        frontend_sdram_valid;
     wire        frontend_sdram_write;
     wire [31:0] frontend_sdram_addr;
@@ -214,44 +249,50 @@ wire        sdram_valid;
     wire        sdram_initialized;
 
 
-    reg [31:0] scanout_capacity_bytes;
+    reg [31:0] sdram_capacity_bytes;
 
     always @* begin
         case (sdram_sz[1:0])
             2'd1:
-                scanout_capacity_bytes =
+                sdram_capacity_bytes =
                     32'h02000000;
 
             2'd2:
-                scanout_capacity_bytes =
+                sdram_capacity_bytes =
                     32'h04000000;
 
             2'd3:
-                scanout_capacity_bytes =
+                sdram_capacity_bytes =
                     32'h08000000;
 
             default:
-                scanout_capacity_bytes =
+                sdram_capacity_bytes =
                     32'h00000000;
         endcase
     end
 
-    wire scanout_size_valid =
+    wire sdram_size_valid =
         sdram_sz[15] &&
-        (scanout_capacity_bytes != 32'd0);
+        (sdram_capacity_bytes != 32'd0);
 
-    // jupiter_video_scanout consumes the inclusive final byte address.
-    wire [31:0] scanout_sdram_max_addr =
-        scanout_size_valid ?
+    // Both video scanout and the M12 loader consume the inclusive final
+    // installed SDRAM byte address.
+    wire [31:0] sdram_max_addr =
+        sdram_size_valid ?
             (32'h10000000 +
-             scanout_capacity_bytes -
+             sdram_capacity_bytes -
              32'd1) :
             32'h00000000;
+
+    wire loader_active;
+    wire core_reset =
+        reset ||
+        loader_active;
 
     jupiter_cpu cpu
     (
         .clk       (clk),
-        .reset     (reset),
+        .reset     (core_reset),
 
         .mem_valid (cpu_mem_valid),
         .mem_write (cpu_mem_write),
@@ -323,6 +364,14 @@ wire        sdram_valid;
         .controller_rdata (controller_rdata),
         .controller_ready (controller_ready),
 
+        .loader_valid (loader_mmio_valid),
+        .loader_write (loader_mmio_write),
+        .loader_addr  (loader_mmio_addr),
+        .loader_wdata (loader_mmio_wdata),
+        .loader_wstrb (loader_mmio_wstrb),
+        .loader_rdata (loader_mmio_rdata),
+        .loader_ready (loader_mmio_ready),
+
         .sdram_valid (sdram_valid),
 .sdram_write (sdram_write),
         .sdram_addr  (sdram_addr),
@@ -335,7 +384,7 @@ wire        sdram_valid;
     jupiter_sdram_arbiter sdram_arbiter
     (
         .clk         (clk),
-        .reset       (reset),
+        .reset       (core_reset),
 
         .cpu_valid   (sdram_valid),
         .cpu_write   (sdram_write),
@@ -372,7 +421,7 @@ wire        sdram_valid;
     jupiter_sdram_scanout_arbiter scanout_sdram_arbiter
     (
         .clk            (clk),
-        .reset          (reset),
+        .reset          (core_reset),
 
         .normal_valid   (shared_sdram_valid),
         .normal_write   (shared_sdram_write),
@@ -387,16 +436,77 @@ wire        sdram_valid;
         .scanout_rdata  (scanout_sdram_rdata),
         .scanout_ready  (scanout_sdram_ready),
 
-        .sdram_valid    (frontend_sdram_valid),
-        .sdram_write    (frontend_sdram_write),
-        .sdram_addr     (frontend_sdram_addr),
-        .sdram_wdata    (frontend_sdram_wdata),
-        .sdram_wstrb    (frontend_sdram_wstrb),
-        .sdram_rdata    (frontend_sdram_rdata),
-        .sdram_ready    (frontend_sdram_ready)
+        .sdram_valid    (game_sdram_valid),
+        .sdram_write    (game_sdram_write),
+        .sdram_addr     (game_sdram_addr),
+        .sdram_wdata    (game_sdram_wdata),
+        .sdram_wstrb    (game_sdram_wstrb),
+        .sdram_rdata    (game_sdram_rdata),
+        .sdram_ready    (game_sdram_ready)
     );
 
 
+
+    jupiter_loader loader
+    (
+        .clk              (clk),
+        .reset            (reset),
+
+        .ioctl_download   (ioctl_download),
+        .ioctl_index      (ioctl_index),
+        .ioctl_wr         (ioctl_wr),
+        .ioctl_addr       (ioctl_addr),
+        .ioctl_dout       (ioctl_dout),
+        .ioctl_wait       (ioctl_wait),
+
+        .mmio_valid       (loader_mmio_valid),
+        .mmio_write       (loader_mmio_write),
+        .mmio_addr        (loader_mmio_addr),
+        .mmio_wdata       (loader_mmio_wdata),
+        .mmio_wstrb       (loader_mmio_wstrb),
+        .mmio_rdata       (loader_mmio_rdata),
+        .mmio_ready       (loader_mmio_ready),
+
+        .sdram_size_valid (sdram_size_valid),
+        .sdram_max_addr   (sdram_max_addr),
+
+        .sdram_valid      (loader_sdram_valid),
+        .sdram_write      (),
+        .sdram_addr       (loader_sdram_addr),
+        .sdram_wdata      (loader_sdram_wdata),
+        .sdram_wstrb      (loader_sdram_wstrb),
+        .sdram_ready      (loader_sdram_ready),
+
+        .loader_active    (loader_active)
+    );
+
+    jupiter_sdram_loader_arbiter loader_sdram_arbiter
+    (
+        .clk          (clk),
+        .reset        (reset),
+
+        .game_valid   (game_sdram_valid),
+        .game_write   (game_sdram_write),
+        .game_addr    (game_sdram_addr),
+        .game_wdata   (game_sdram_wdata),
+        .game_wstrb   (game_sdram_wstrb),
+        .game_rdata   (game_sdram_rdata),
+        .game_ready   (game_sdram_ready),
+
+        .loader_valid (loader_sdram_valid),
+        .loader_addr  (loader_sdram_addr),
+        .loader_wdata (loader_sdram_wdata),
+        .loader_wstrb (loader_sdram_wstrb),
+        .loader_ready (loader_sdram_ready),
+
+        .sdram_valid  (frontend_sdram_valid),
+        .sdram_write  (frontend_sdram_write),
+        .sdram_addr   (frontend_sdram_addr),
+        .sdram_wdata  (frontend_sdram_wdata),
+        .sdram_wstrb  (frontend_sdram_wstrb),
+        .sdram_rdata  (frontend_sdram_rdata),
+        .sdram_ready  (frontend_sdram_ready)
+    );
 
     jupiter_sdram_frontend sdram_frontend
     (
@@ -485,7 +595,7 @@ wire        sdram_valid;
     jupiter_video_scanout video_scanout
     (
         .clk            (clk),
-        .reset          (reset),
+        .reset          (core_reset),
 
         .pal            (pal),
         .scandouble     (scandouble),
@@ -499,7 +609,7 @@ wire        sdram_valid;
         .rdata          (scanout_mmio_rdata),
         .ready          (scanout_mmio_ready),
 
-        .sdram_max_addr (scanout_sdram_max_addr),
+        .sdram_max_addr (sdram_max_addr),
 
         .sdram_valid    (scanout_sdram_valid),
         .sdram_addr     (scanout_sdram_addr),
@@ -523,7 +633,7 @@ wire        sdram_valid;
     jupiter_gpu_2d gpu
     (
         .clk   (clk),
-        .reset (reset),
+        .reset (core_reset),
 
         .valid (gpu_render_valid),
         .write (gpu_write),
@@ -547,7 +657,7 @@ wire        sdram_valid;
     jupiter_dma dma
     (
         .clk   (clk),
-        .reset (reset),
+        .reset (core_reset),
 
         .valid (dma_valid),
         .write (dma_write),
@@ -569,7 +679,7 @@ wire        sdram_valid;
     jupiter_audio audio
     (
         .clk   (clk),
-        .reset (reset),
+        .reset (core_reset),
 
         .valid (audio_valid),
         .write (audio_write),
