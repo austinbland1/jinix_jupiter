@@ -193,6 +193,7 @@ Used for instructions without register or immediate operands.
 | `0x30` | `BEQ` | B | Branch when `rs1 == rs2` |
 | `0x31` | `BNE` | B | Branch when `rs1 != rs2` |
 | `0x32` | `J` | J | Unconditional PC-relative jump |
+| `0x33` | `JMPR` | I | `PC = rs1 + sign_extend(imm14)` |
 | `0xFF` | `HALT` | N | Stop instruction execution |
 
 All other opcodes are reserved for future ISA expansion.
@@ -412,8 +413,9 @@ Branch targets are relative to `PC + 4`.
 
 Instruction addresses must remain 4-byte aligned.
 
-The Milestone 2 ISA does not provide indirect jumps, calls, returns, or link
-instructions.
+Milestone 12 adds exactly one indirect control-flow instruction, `JMPR`, while link-writing calls and returns remain outside this ISA revision.
+`JMPR` uses opcode `0x33` and the existing I-format fields: `rd` is reserved and encoded as `r0`, `rs1` supplies the base register, and `imm14` is sign-extended exactly as for the existing I-format instructions.
+Execution computes `target = R[rs1] + sign_extend(imm14)` and then sets `PC = target`. The target must satisfy `target[1:0] == 2'b00`. `JMPR` does not write any general-purpose register and does not create a link address.
 
 Those may be introduced by a later ISA revision if required.
 

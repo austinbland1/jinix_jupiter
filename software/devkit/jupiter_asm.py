@@ -22,11 +22,12 @@ OPCODES = {
     "BEQ": 0x30,
     "BNE": 0x31,
     "J": 0x32,
+    "JMPR": 0x33,
     "HALT": 0xFF,
 }
 
 R_MNEMONICS = {"ADD", "SUB", "AND", "OR", "XOR"}
-I_MNEMONICS = {"ADDI", "LDW"}
+I_MNEMONICS = {"ADDI", "JMPR", "LDW"}
 B_MNEMONICS = {"BEQ", "BNE"}
 N_MNEMONICS = {"NOP", "HALT"}
 

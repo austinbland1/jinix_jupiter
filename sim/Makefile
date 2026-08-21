@@ -674,3 +674,21 @@ m12c-clean:
 		jupiter_interconnect_loader.vvp \
 		jupiter_loader_boundary_chain.vvp \
 		jupiter_core_reset.vvp
+
+# ============================================================
+# Milestone 12D - JMPR ISA / CPU / assembler regression
+# ============================================================
+
+.PHONY: m12d-test jmpr-assembler-test cpu-jmpr-test
+
+test: m12d-test
+
+m12d-test: assembler-test cpu-control-test cpu-program-test \
+           jmpr-assembler-test cpu-jmpr-test
+
+jmpr-assembler-test:
+	python3 -B test_m12d_jmpr_assembler.py
+
+cpu-jmpr-test:
+	iverilog -g2012 -s jupiter_cpu_jmpr_tb -o jupiter_cpu_jmpr.vvp $(CPU_RTL) jupiter_cpu_jmpr_tb.sv
+	vvp -n jupiter_cpu_jmpr.vvp

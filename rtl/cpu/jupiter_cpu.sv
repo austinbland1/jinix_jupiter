@@ -31,6 +31,7 @@ module jupiter_cpu
     localparam [7:0] OP_BEQ  = 8'h30;
     localparam [7:0] OP_BNE  = 8'h31;
     localparam [7:0] OP_J    = 8'h32;
+    localparam [7:0] OP_JMPR = 8'h33;
 
     localparam [7:0] OP_HALT = 8'hFF;
 
@@ -179,6 +180,11 @@ module jupiter_cpu
 
                         OP_J: begin
                             pc    <= pc + 32'd4 + jump_offset;
+                            state <= STATE_FETCH;
+                        end
+
+                        OP_JMPR: begin
+                            pc    <= regs[rs1_index] + imm14_sext;
                             state <= STATE_FETCH;
                         end
 

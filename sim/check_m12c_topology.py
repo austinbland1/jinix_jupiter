@@ -31,7 +31,7 @@ PROTECTED_SHA = {
     "sys/hps_io.sv":
         "f4a085fc23bdcefb57c600866a39a448c749cd3c93910f7005316e8df9019bec",
     "rtl/cpu/jupiter_cpu.sv":
-        "cdf6af92cf25539d8bcf43b4a023853be1c18eacebad0c363c0b6df58d2261bd",
+        "ed01c52e46068cce8d29be798a43d991426aefaf446cba5b8587831547758ef7",
     "rtl/gpu/jupiter_gpu_2d.sv":
         "ee9759e6b5dded1d41e88d079ffcc32b3f72e996508772d3626a5bc26185d914",
     "rtl/dma/jupiter_dma.sv":
