@@ -135,7 +135,7 @@ boot-image-test:
 	python3 -B ../software/devkit/jupiter_asm.py ../software/bios/test_program.asm -o m9c_program.hex --origin 0x00000400
 	python3 -B ../software/tools/build_system_image.py --bios m9c_bios.hex --app m9c_program.hex --output m9c_system.mem
 	python3 -B check_m9c_boot_image.py m9c_bios.hex m9c_program.hex m9c_system.mem
-	iverilog -g2012 -s jupiter_boot_image_tb -o jupiter_boot_image.vvp $(CPU_SUBSYSTEM_RTL) jupiter_boot_image_tb.sv
+	iverilog -g2012 -s jupiter_boot_image_tb -o jupiter_boot_image.vvp $(CPU_SUBSYSTEM_RTL) $(SDRAM_MODEL) jupiter_boot_image_tb.sv
 	vvp -n jupiter_boot_image.vvp +IMAGE=m9c_system.mem
 
 audio-regs-test:
@@ -692,3 +692,12 @@ jmpr-assembler-test:
 cpu-jmpr-test:
 	iverilog -g2012 -s jupiter_cpu_jmpr_tb -o jupiter_cpu_jmpr.vvp $(CPU_RTL) jupiter_cpu_jmpr_tb.sv
 	vvp -n jupiter_cpu_jmpr.vvp
+
+.PHONY: m12e-test m12e-bios-handoff-test
+
+test: m12e-test
+
+m12e-test: m12d-test m12c-test m12e-bios-handoff-test
+
+m12e-bios-handoff-test:
+	python3 -B test_m12e_bios_cartridge_handoff.py

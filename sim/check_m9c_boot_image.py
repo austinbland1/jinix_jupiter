@@ -4,7 +4,6 @@
 from pathlib import Path
 import sys
 
-EXPECTED_BIOS = ["320000FF"]
 EXPECTED_APP = [
     "10081000",
     "1010002A",
@@ -24,6 +23,7 @@ def read_lines(path):
         return Path(path).read_text().splitlines()
     except OSError as exc:
         raise CheckError(f"{path}: {exc}") from exc
+EXPECTED_BIOS = read_lines(Path("m9c_bios.hex"))
 
 
 def check_artifacts(bios_path, app_path, image_path):
@@ -49,7 +49,7 @@ def check_artifacts(bios_path, app_path, image_path):
     if image[0] != EXPECTED_BIOS[0]:
         raise CheckError("system image BIOS entry word is wrong")
 
-    if any(word != "00000000" for word in image[1:APP_WORD_INDEX]):
+    if any(word != "00000000" for word in image[len(EXPECTED_BIOS):APP_WORD_INDEX]):
         raise CheckError("system image BIOS padding is not zero-filled")
 
     app_end = APP_WORD_INDEX + len(EXPECTED_APP)

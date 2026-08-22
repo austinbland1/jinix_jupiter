@@ -108,9 +108,9 @@ module jupiter_loader
                 8'h00:
                     mmio_rdata = {
                         29'd0,
+                        loader_active,
                         overflow,
-                        done,
-                        loader_active
+                        done
                     };
 
                 8'h04:

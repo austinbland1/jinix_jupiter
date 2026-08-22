@@ -269,9 +269,9 @@ module jupiter_loader_tb;
         check(write_addr_1 == 32'h10000004, "second write address must auto-increment by four");
         check(write_data_1 == 32'hAABBCCDD, "second word must assemble low byte first");
         read_mmio(32'h00001500, value);
-        check(value[0] == 1'b0, "LOADING must clear after completion");
-        check(value[1] == 1'b1, "DONE must set after matching download completion");
-        check(value[2] == 1'b0, "OVERFLOW must remain clear for in-range load");
+        check(value[2] == 1'b0, "LOADING must clear after completion");
+        check(value[0] == 1'b1, "DONE must set after matching download completion");
+        check(value[1] == 1'b0, "OVERFLOW must remain clear for in-range load");
         read_mmio(32'h00001504, value);
         check(value == 32'd8, "LOAD_SIZE must count bytes actually written");
 
@@ -287,7 +287,7 @@ module jupiter_loader_tb;
         read_mmio(32'h00001504, value);
         check(value == 32'd0, "partial trailing word must not increase LOAD_SIZE");
         read_mmio(32'h00001500, value);
-        check(value[1] == 1'b1, "DONE must still set after partial-tail completion");
+        check(value[0] == 1'b1, "DONE must still set after partial-tail completion");
 
         // Backpressure is exported through ioctl_wait until the shared path
         // returns ready.
@@ -330,7 +330,7 @@ module jupiter_loader_tb;
         read_mmio(32'h00001504, value);
         check(value == 32'd4, "LOAD_SIZE must stop at bytes successfully written");
         read_mmio(32'h00001500, value);
-        check(value[2] == 1'b1, "OVERFLOW must become sticky when next word exceeds capacity");
+        check(value[1] == 1'b1, "OVERFLOW must become sticky when next word exceeds capacity");
 
         // No SDRAM configuration accepts bytes but emits no writes.
         reset_dut;
@@ -346,19 +346,19 @@ module jupiter_loader_tb;
         check(write_count == 0, "no-SDRAM configuration must suppress writes");
         check(ioctl_wait === 1'b0, "overflow discard path must not deadlock HPS transfer");
         read_mmio(32'h00001500, value);
-        check(value[2] == 1'b1, "no-SDRAM complete word must set OVERFLOW");
+        check(value[1] == 1'b1, "no-SDRAM complete word must set OVERFLOW");
 
         // Sticky status clears only when the next matching download begins.
         start_download(16'h0002);
         step;
         read_mmio(32'h00001500, value);
-        check(value[2] == 1'b1, "non-matching download must not clear OVERFLOW");
+        check(value[1] == 1'b1, "non-matching download must not clear OVERFLOW");
         stop_download;
 
         start_download(16'h0001);
         read_mmio(32'h00001500, value);
-        check(value[1] == 1'b0, "new matching download must clear DONE");
-        check(value[2] == 1'b0, "new matching download must clear OVERFLOW");
+        check(value[0] == 1'b0, "new matching download must clear DONE");
+        check(value[1] == 1'b0, "new matching download must clear OVERFLOW");
         stop_download;
 
         // Writes to the read-side loader aperture are ignored.
